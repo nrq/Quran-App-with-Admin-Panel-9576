@@ -1,0 +1,98 @@
+@import url('https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
+.app-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+}
+
+.arabic-text {
+  font-family: 'Amiri', serif;
+  direction: rtl;
+  text-align: right;
+  line-height: 2.2;
+  font-size: 1.5rem;
+}
+
+.english-text {
+  font-family: 'Inter', sans-serif;
+  line-height: 1.7;
+}
+
+.ayah-card {
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+}
+
+.ayah-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+.ayah-card.playing {
+  border-color: #d4af37;
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+}
+
+.audio-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.progress-bar {
+  height: 4px;
+  background: #e2e8f0;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #d4af37 0%, #b8860b 100%);
+  transition: width 0.1s ease;
+}
+
+.admin-panel {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.loading-spinner {
+  border: 3px solid #e2e8f0;
+  border-top: 3px solid #d4af37;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.verse-number {
+  background: linear-gradient(135deg, #d4af37 0%, #b8860b 100%);
+  color: white;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.surah-card {
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border: 1px solid #e2e8f0;
+  transition: all 0.3s ease;
+}
+
+.surah-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
+  border-color: #d4af37;
+}

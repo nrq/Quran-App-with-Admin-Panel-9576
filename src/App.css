@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Scheherazade+New:wght@400;700&family=Inter:wght@300;400;500;600;700&display=swap');
 
 .app-container {
   min-height: 100vh;
@@ -6,11 +6,14 @@
 }
 
 .arabic-text {
-  font-family: 'Amiri', serif;
+  font-family: 'Scheherazade New', 'Amiri', serif;
   direction: rtl;
   text-align: right;
-  line-height: 2.2;
-  font-size: 1.5rem;
+  line-height: 2.5;
+  font-size: 2.2rem;
+  font-weight: 700;
+  color: #1e293b;
+  letter-spacing: 0.5px;
 }
 
 .english-text {
@@ -76,8 +79,8 @@
   background: linear-gradient(135deg, #d4af37 0%, #b8860b 100%);
   color: white;
   border-radius: 50%;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -95,4 +98,82 @@
   transform: translateY(-4px);
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
   border-color: #d4af37;
+}
+
+.bismillah {
+  font-family: 'Scheherazade New', serif;
+  font-size: 2.8rem;
+  font-weight: 700;
+  text-align: center;
+  color: #1e293b;
+  margin: 1.5rem 0;
+  line-height: 1.6;
+}
+
+/* Pakistan style Quran font settings */
+.quran-text-pak {
+  font-family: 'Scheherazade New', serif;
+  font-size: 2.4rem;
+  font-weight: 700;
+  line-height: 2.8;
+  letter-spacing: 1px;
+  color: #0f172a;
+  text-shadow: 0px 1px 1px rgba(0, 0, 0, 0.05);
+}
+
+/* Audio player enhancements */
+.audio-button {
+  position: relative;
+  overflow: hidden;
+}
+
+.audio-button::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.audio-button:active::after {
+  width: 200px;
+  height: 200px;
+  opacity: 0;
+}
+
+.playing-animation {
+  position: relative;
+}
+
+.playing-animation::before,
+.playing-animation::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 0 2px #d4af37;
+  animation: pulse 2s infinite;
+}
+
+.playing-animation::after {
+  animation-delay: 1s;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
 }

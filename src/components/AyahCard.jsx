@@ -9,17 +9,26 @@ const { FiPlay, FiPause, FiVolume2, FiBook } = FiIcons;
 const AyahCard = ({ verse, surahNumber, index }) => {
   const { playAudio, stopAudio, playingAyah, getTafseer } = useQuran();
   const [showTafseer, setShowTafseer] = useState(false);
+  const [isAudioLoaded, setIsAudioLoaded] = useState(true);
   const ayahKey = `${surahNumber}:${verse.verse_number}`;
   const isPlaying = playingAyah === ayahKey;
   const tafseerText = getTafseer(surahNumber, verse.verse_number);
 
   const handlePlayAudio = () => {
+    setIsAudioLoaded(false);
     if (isPlaying) {
       stopAudio();
     } else {
       playAudio(surahNumber, verse.verse_number);
     }
   };
+
+  // Reset audio loaded state when playingAyah changes
+  useEffect(() => {
+    if (isPlaying) {
+      setIsAudioLoaded(true);
+    }
+  }, [isPlaying]);
 
   const toggleTafseer = () => {
     setShowTafseer(!showTafseer);
@@ -50,16 +59,18 @@ const AyahCard = ({ verse, surahNumber, index }) => {
           
           <button
             onClick={handlePlayAudio}
-            className="flex items-center space-x-2 bg-islamic-gold hover:bg-yellow-600 text-white px-4 py-2 rounded-lg transition-colors"
+            className={`flex items-center space-x-2 bg-islamic-gold hover:bg-yellow-600 text-white px-4 py-2 rounded-lg transition-colors audio-button ${isPlaying ? 'playing-animation' : ''}`}
+            disabled={!isAudioLoaded && isPlaying}
           >
             <SafeIcon icon={isPlaying ? FiPause : FiPlay} className="text-sm" />
             <SafeIcon icon={FiVolume2} className="text-sm" />
+            <span>{isPlaying ? 'Stop' : 'Play'}</span>
           </button>
         </div>
       </div>
 
       <div className="space-y-4">
-        <div className="arabic-text text-islamic-800 text-right leading-loose">
+        <div className="quran-text-pak text-islamic-800 text-right leading-loose">
           {verse.text_uthmani}
         </div>
         

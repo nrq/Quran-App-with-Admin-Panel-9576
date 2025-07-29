@@ -1,15 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
 import { useAuth } from '../contexts/AuthContext';
 import { useQuran } from '../contexts/QuranContext';
 import toast from 'react-hot-toast';
+import supabase from '../lib/supabase';
 
-const { FiLogOut, FiMusic, FiSave, FiPlay, FiSearch, FiBook } = FiIcons;
+const { FiLogOut, FiMusic, FiSave, FiPlay, FiSearch, FiBook, FiDatabase, FiRefreshCw } = FiIcons;
 
 const AdminPanel = () => {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const { surahs, audioMappings, tafseerMappings, saveAudioMapping, saveTafseerMapping } = useQuran();
   const [activeTab, setActiveTab] = useState('audio'); // 'audio' or 'tafseer'
   const [selectedSurah, setSelectedSurah] = useState('');
@@ -17,6 +18,21 @@ const AdminPanel = () => {
   const [audioUrl, setAudioUrl] = useState('');
   const [tafseerText, setTafseerText] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [syncStatus, setSyncStatus] = useState('idle'); // 'idle', 'syncing', 'success', 'error'
+  const [stats, setStats] = useState({
+    audioCount: 0,
+    tafseerCount: 0,
+    totalSurahs: 0
+  });
+
+  useEffect(() => {
+    // Update stats whenever mappings change
+    setStats({
+      audioCount: Object.keys(audioMappings).length,
+      tafseerCount: Object.keys(tafseerMappings).length,
+      totalSurahs: surahs.length
+    });
+  }, [audioMappings, tafseerMappings, surahs]);
 
   const handleSaveAudio = () => {
     if (!selectedSurah || !ayahNumber || !audioUrl) {
@@ -57,6 +73,68 @@ const AdminPanel = () => {
     });
   };
 
+  // Sync local storage data with Supabase
+  const syncWithSupabase = async () => {
+    setSyncStatus('syncing');
+    try {
+      // Get local data
+      const localAudio = JSON.parse(localStorage.getItem('quran_audio_mappings') || '{}');
+      const localTafseer = JSON.parse(localStorage.getItem('quran_tafseer_mappings') || '{}');
+      
+      // Prepare batch operations for audio
+      const audioEntries = Object.entries(localAudio).map(([key, url]) => {
+        const [surahNumber, ayahNumber] = key.split(':');
+        return {
+          surah_number: parseInt(surahNumber),
+          ayah_number: parseInt(ayahNumber),
+          audio_url: url,
+          updated_at: new Date()
+        };
+      });
+      
+      // Prepare batch operations for tafseer
+      const tafseerEntries = Object.entries(localTafseer).map(([key, text]) => {
+        const [surahNumber, ayahNumber] = key.split(':');
+        return {
+          surah_number: parseInt(surahNumber),
+          ayah_number: parseInt(ayahNumber),
+          tafseer_text: text,
+          updated_at: new Date()
+        };
+      });
+      
+      // Execute batch upserts
+      if (audioEntries.length > 0) {
+        const { error: audioError } = await supabase
+          .from('audio_mappings_qr84fm')
+          .upsert(audioEntries, { onConflict: 'surah_number,ayah_number' });
+          
+        if (audioError) throw audioError;
+      }
+      
+      if (tafseerEntries.length > 0) {
+        const { error: tafseerError } = await supabase
+          .from('tafseer_entries_qr84fm')
+          .upsert(tafseerEntries, { onConflict: 'surah_number,ayah_number' });
+          
+        if (tafseerError) throw tafseerError;
+      }
+      
+      setSyncStatus('success');
+      toast.success('Successfully synced with database');
+      
+      // Reset after 3 seconds
+      setTimeout(() => setSyncStatus('idle'), 3000);
+    } catch (error) {
+      console.error('Error syncing with Supabase:', error);
+      setSyncStatus('error');
+      toast.error('Failed to sync with database');
+      
+      // Reset after 3 seconds
+      setTimeout(() => setSyncStatus('idle'), 3000);
+    }
+  };
+
   const filteredSurahs = surahs.filter(surah => 
     surah.name_simple.toLowerCase().includes(searchTerm.toLowerCase()) ||
     surah.translated_name.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -76,14 +154,53 @@ const AdminPanel = () => {
       <nav className="bg-white shadow-lg border-b border-islamic-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <h1 className="text-2xl font-bold text-islamic-800">Admin Panel</h1>
-            <button
-              onClick={logout}
-              className="flex items-center space-x-2 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition-colors"
-            >
-              <SafeIcon icon={FiLogOut} />
-              <span>Logout</span>
-            </button>
+            <div className="flex items-center">
+              <h1 className="text-2xl font-bold text-islamic-800">Admin Panel</h1>
+              {user && (
+                <span className="ml-3 bg-islamic-100 text-islamic-600 px-3 py-1 rounded-full text-sm">
+                  {user.email}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={syncWithSupabase}
+                className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+                  syncStatus === 'syncing' 
+                    ? 'bg-yellow-100 text-yellow-700' 
+                    : syncStatus === 'success'
+                    ? 'bg-green-100 text-green-700'
+                    : syncStatus === 'error'
+                    ? 'bg-red-100 text-red-700'
+                    : 'bg-islamic-100 text-islamic-600 hover:bg-islamic-200'
+                }`}
+                disabled={syncStatus === 'syncing'}
+              >
+                <SafeIcon 
+                  icon={
+                    syncStatus === 'syncing' ? FiRefreshCw :
+                    syncStatus === 'success' ? FiDatabase :
+                    syncStatus === 'error' ? FiDatabase :
+                    FiDatabase
+                  } 
+                  className={syncStatus === 'syncing' ? 'animate-spin' : ''}
+                />
+                <span>
+                  {syncStatus === 'syncing' ? 'Syncing...' :
+                   syncStatus === 'success' ? 'Synced!' :
+                   syncStatus === 'error' ? 'Sync Failed' :
+                   'Sync Database'}
+                </span>
+              </button>
+              
+              <button
+                onClick={logout}
+                className="flex items-center space-x-2 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition-colors"
+              >
+                <SafeIcon icon={FiLogOut} />
+                <span>Logout</span>
+              </button>
+            </div>
           </div>
         </div>
       </nav>
@@ -286,18 +403,18 @@ const AdminPanel = () => {
           <h2 className="text-xl font-bold text-islamic-800 mb-6">Statistics</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-islamic-50 p-4 rounded-lg">
-              <div className="text-2xl font-bold text-islamic-gold">{surahs.length}</div>
+              <div className="text-2xl font-bold text-islamic-gold">{stats.totalSurahs}</div>
               <div className="text-islamic-600">Total Surahs</div>
             </div>
             <div className="bg-islamic-50 p-4 rounded-lg">
               <div className="text-2xl font-bold text-islamic-gold">
-                {Object.keys(audioMappings).length}
+                {stats.audioCount}
               </div>
               <div className="text-islamic-600">Custom Audio Mappings</div>
             </div>
             <div className="bg-islamic-50 p-4 rounded-lg">
               <div className="text-2xl font-bold text-islamic-gold">
-                {Object.keys(tafseerMappings).length}
+                {stats.tafseerCount}
               </div>
               <div className="text-islamic-600">Tafseer Entries</div>
             </div>

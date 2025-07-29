@@ -29,7 +29,7 @@ const Surah = () => {
       setVerses(versesData);
       setLoading(false);
     };
-
+    
     if (surahs.length > 0) {
       loadSurah();
     }
@@ -57,6 +57,8 @@ const Surah = () => {
     );
   }
 
+  const showBismillah = surah.id !== 1 && surah.id !== 9;
+
   return (
     <div className="space-y-8">
       <motion.div
@@ -64,8 +66,8 @@ const Surah = () => {
         animate={{ opacity: 1, y: 0 }}
         className="bg-white rounded-xl p-6 shadow-lg"
       >
-        <Link 
-          to="/" 
+        <Link
+          to="/"
           className="inline-flex items-center space-x-2 text-islamic-600 hover:text-islamic-800 mb-6 transition-colors"
         >
           <SafeIcon icon={FiArrowLeft} />
@@ -92,22 +94,32 @@ const Surah = () => {
               </div>
             </div>
           </div>
-          
+
           <div className="text-right">
-            <div className="arabic-text text-4xl text-islamic-800">
+            <div className="quran-text-pak text-4xl text-islamic-800">
               {surah.name_arabic}
             </div>
           </div>
         </div>
       </motion.div>
 
+      {showBismillah && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="bismillah text-center py-4"
+        >
+          بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
+        </motion.div>
+      )}
+
       <div className="space-y-6">
         {verses.map((verse, index) => (
           <AyahCard 
             key={verse.verse_key} 
             verse={verse} 
-            surahNumber={parseInt(surahNumber)}
-            index={index}
+            surahNumber={parseInt(surahNumber)} 
+            index={index} 
           />
         ))}
       </div>

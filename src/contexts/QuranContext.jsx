@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import supabase from '../lib/supabase';
 
 const QuranContext = createContext();
 
@@ -39,39 +40,168 @@ export const QuranProvider = ({ children }) => {
     fetchSurahs();
   }, []);
 
-  // Load audio and tafseer mappings from localStorage
+  // Load audio and tafseer mappings from Supabase
   useEffect(() => {
-    const savedAudioMappings = localStorage.getItem('quran_audio_mappings');
-    if (savedAudioMappings) {
-      setAudioMappings(JSON.parse(savedAudioMappings));
-    }
-
-    const savedTafseerMappings = localStorage.getItem('quran_tafseer_mappings');
-    if (savedTafseerMappings) {
-      setTafseerMappings(JSON.parse(savedTafseerMappings));
-    }
+    const fetchMappings = async () => {
+      try {
+        // Fetch audio mappings from Supabase
+        const { data: audioData, error: audioError } = await supabase
+          .from('audio_mappings_qr84fm')
+          .select('*');
+        
+        if (audioError) throw audioError;
+        
+        // Convert to key-value mapping format
+        const audioMap = {};
+        audioData?.forEach(mapping => {
+          const key = `${mapping.surah_number}:${mapping.ayah_number}`;
+          audioMap[key] = mapping.audio_url;
+        });
+        setAudioMappings(audioMap);
+        
+        // Fetch tafseer mappings from Supabase
+        const { data: tafseerData, error: tafseerError } = await supabase
+          .from('tafseer_entries_qr84fm')
+          .select('*');
+        
+        if (tafseerError) throw tafseerError;
+        
+        // Convert to key-value mapping format
+        const tafseerMap = {};
+        tafseerData?.forEach(mapping => {
+          const key = `${mapping.surah_number}:${mapping.ayah_number}`;
+          tafseerMap[key] = mapping.tafseer_text;
+        });
+        setTafseerMappings(tafseerMap);
+      } catch (error) {
+        console.error('Error fetching mappings from Supabase:', error);
+        
+        // Fallback to localStorage if Supabase fails
+        const savedAudioMappings = localStorage.getItem('quran_audio_mappings');
+        if (savedAudioMappings) {
+          setAudioMappings(JSON.parse(savedAudioMappings));
+        }
+        
+        const savedTafseerMappings = localStorage.getItem('quran_tafseer_mappings');
+        if (savedTafseerMappings) {
+          setTafseerMappings(JSON.parse(savedTafseerMappings));
+        }
+      }
+    };
+    
+    fetchMappings();
   }, []);
 
-  const saveAudioMapping = (surahNumber, ayahNumber, audioUrl) => {
-    const key = `${surahNumber}:${ayahNumber}`;
-    const newMappings = {
-      ...audioMappings,
-      [key]: audioUrl
+  // Set up real-time subscription for updates
+  useEffect(() => {
+    const audioSubscription = supabase
+      .channel('audio_changes')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'audio_mappings_qr84fm' }, 
+        payload => {
+          if (payload.new) {
+            const { surah_number, ayah_number, audio_url } = payload.new;
+            const key = `${surah_number}:${ayah_number}`;
+            setAudioMappings(prev => ({ ...prev, [key]: audio_url }));
+          }
+        }
+      )
+      .subscribe();
+      
+    const tafseerSubscription = supabase
+      .channel('tafseer_changes')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'tafseer_entries_qr84fm' }, 
+        payload => {
+          if (payload.new) {
+            const { surah_number, ayah_number, tafseer_text } = payload.new;
+            const key = `${surah_number}:${ayah_number}`;
+            setTafseerMappings(prev => ({ ...prev, [key]: tafseer_text }));
+          }
+        }
+      )
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(audioSubscription);
+      supabase.removeChannel(tafseerSubscription);
     };
-    setAudioMappings(newMappings);
-    localStorage.setItem('quran_audio_mappings', JSON.stringify(newMappings));
-    toast.success('Audio mapping saved successfully');
+  }, []);
+
+  const saveAudioMapping = async (surahNumber, ayahNumber, audioUrl) => {
+    const key = `${surahNumber}:${ayahNumber}`;
+    
+    try {
+      // Save to Supabase
+      const { error } = await supabase
+        .from('audio_mappings_qr84fm')
+        .upsert({ 
+          surah_number: surahNumber, 
+          ayah_number: ayahNumber, 
+          audio_url: audioUrl,
+          updated_at: new Date()
+        }, { 
+          onConflict: 'surah_number,ayah_number' 
+        });
+      
+      if (error) throw error;
+      
+      // Update local state
+      const newMappings = { ...audioMappings, [key]: audioUrl };
+      setAudioMappings(newMappings);
+      
+      // Backup to localStorage
+      localStorage.setItem('quran_audio_mappings', JSON.stringify(newMappings));
+      
+      toast.success('Audio mapping saved successfully');
+    } catch (error) {
+      console.error('Error saving audio mapping:', error);
+      
+      // Fallback to localStorage only if Supabase fails
+      const newMappings = { ...audioMappings, [key]: audioUrl };
+      setAudioMappings(newMappings);
+      localStorage.setItem('quran_audio_mappings', JSON.stringify(newMappings));
+      
+      toast.success('Audio mapping saved locally');
+    }
   };
 
-  const saveTafseerMapping = (surahNumber, ayahNumber, tafseerText) => {
+  const saveTafseerMapping = async (surahNumber, ayahNumber, tafseerText) => {
     const key = `${surahNumber}:${ayahNumber}`;
-    const newMappings = {
-      ...tafseerMappings,
-      [key]: tafseerText
-    };
-    setTafseerMappings(newMappings);
-    localStorage.setItem('quran_tafseer_mappings', JSON.stringify(newMappings));
-    toast.success('Tafseer saved successfully');
+    
+    try {
+      // Save to Supabase
+      const { error } = await supabase
+        .from('tafseer_entries_qr84fm')
+        .upsert({ 
+          surah_number: surahNumber, 
+          ayah_number: ayahNumber, 
+          tafseer_text: tafseerText,
+          updated_at: new Date()
+        }, { 
+          onConflict: 'surah_number,ayah_number' 
+        });
+      
+      if (error) throw error;
+      
+      // Update local state
+      const newMappings = { ...tafseerMappings, [key]: tafseerText };
+      setTafseerMappings(newMappings);
+      
+      // Backup to localStorage
+      localStorage.setItem('quran_tafseer_mappings', JSON.stringify(newMappings));
+      
+      toast.success('Tafseer saved successfully');
+    } catch (error) {
+      console.error('Error saving tafseer:', error);
+      
+      // Fallback to localStorage only if Supabase fails
+      const newMappings = { ...tafseerMappings, [key]: tafseerText };
+      setTafseerMappings(newMappings);
+      localStorage.setItem('quran_tafseer_mappings', JSON.stringify(newMappings));
+      
+      toast.success('Tafseer saved locally');
+    }
   };
 
   const getAudioUrl = (surahNumber, ayahNumber) => {
@@ -104,8 +234,7 @@ export const QuranProvider = ({ children }) => {
     audioRef.current = audio;
     
     // Show loading toast
-    const loadingToastId = 'audio-loading';
-    toast.loading('Loading audio...', { id: loadingToastId });
+    const loadingToastId = toast.loading('Loading audio...');
     
     // Add event listeners
     audio.addEventListener('canplay', () => {

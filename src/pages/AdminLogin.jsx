@@ -21,16 +21,18 @@ const AdminLogin = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-
-    const success = login(username, password);
     
-    if (success) {
-      toast.success('Login successful!');
-    } else {
-      toast.error('Invalid credentials');
+    try {
+      const success = await login(username, password);
+      if (!success) {
+        toast.error('Invalid credentials');
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      toast.error('Login failed. Please try again.');
+    } finally {
+      setLoading(false);
     }
-    
-    setLoading(false);
   };
 
   return (
@@ -54,7 +56,10 @@ const AdminLogin = () => {
               Username
             </label>
             <div className="relative">
-              <SafeIcon icon={FiUser} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-islamic-400" />
+              <SafeIcon
+                icon={FiUser}
+                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-islamic-400"
+              />
               <input
                 type="text"
                 value={username}
@@ -71,7 +76,10 @@ const AdminLogin = () => {
               Password
             </label>
             <div className="relative">
-              <SafeIcon icon={FiLock} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-islamic-400" />
+              <SafeIcon
+                icon={FiLock}
+                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-islamic-400"
+              />
               <input
                 type="password"
                 value={password}

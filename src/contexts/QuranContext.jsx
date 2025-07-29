@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
@@ -15,9 +15,12 @@ export const useQuran = () => {
 export const QuranProvider = ({ children }) => {
   const [surahs, setSurahs] = useState([]);
   const [currentAudio, setCurrentAudio] = useState(null);
+  const [playingAyah, setPlayingAyah] = useState(null);
   const [audioMappings, setAudioMappings] = useState({});
+  const [tafseerMappings, setTafseerMappings] = useState({});
   const [loading, setLoading] = useState(true);
   const [currentSurah, setCurrentSurah] = useState(null);
+  const audioRef = useRef(null);
 
   // Load Quran chapters list
   useEffect(() => {
@@ -36,11 +39,16 @@ export const QuranProvider = ({ children }) => {
     fetchSurahs();
   }, []);
 
-  // Load audio mappings from localStorage
+  // Load audio and tafseer mappings from localStorage
   useEffect(() => {
-    const savedMappings = localStorage.getItem('quran_audio_mappings');
-    if (savedMappings) {
-      setAudioMappings(JSON.parse(savedMappings));
+    const savedAudioMappings = localStorage.getItem('quran_audio_mappings');
+    if (savedAudioMappings) {
+      setAudioMappings(JSON.parse(savedAudioMappings));
+    }
+
+    const savedTafseerMappings = localStorage.getItem('quran_tafseer_mappings');
+    if (savedTafseerMappings) {
+      setTafseerMappings(JSON.parse(savedTafseerMappings));
     }
   }, []);
 
@@ -55,43 +63,87 @@ export const QuranProvider = ({ children }) => {
     toast.success('Audio mapping saved successfully');
   };
 
+  const saveTafseerMapping = (surahNumber, ayahNumber, tafseerText) => {
+    const key = `${surahNumber}:${ayahNumber}`;
+    const newMappings = {
+      ...tafseerMappings,
+      [key]: tafseerText
+    };
+    setTafseerMappings(newMappings);
+    localStorage.setItem('quran_tafseer_mappings', JSON.stringify(newMappings));
+    toast.success('Tafseer saved successfully');
+  };
+
   const getAudioUrl = (surahNumber, ayahNumber) => {
     const key = `${surahNumber}:${ayahNumber}`;
     return audioMappings[key] || `https://everyayah.com/data/Alafasy_128kbps/${String(surahNumber).padStart(3, '0')}${String(ayahNumber).padStart(3, '0')}.mp3`;
   };
 
+  const getTafseer = (surahNumber, ayahNumber) => {
+    const key = `${surahNumber}:${ayahNumber}`;
+    return tafseerMappings[key] || '';
+  };
+
   const playAudio = (surahNumber, ayahNumber) => {
-    if (currentAudio) {
-      currentAudio.pause();
+    // If there's already audio playing, stop it
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
     }
 
+    // Create key for current playing ayah
+    const ayahKey = `${surahNumber}:${ayahNumber}`;
+    
+    // Get the audio URL
     const audioUrl = getAudioUrl(surahNumber, ayahNumber);
+    
+    // Create a new audio element
     const audio = new Audio(audioUrl);
     
-    audio.addEventListener('loadstart', () => {
-      toast.loading('Loading audio...', { id: 'audio-loading' });
-    });
-
+    // Set the audio reference
+    audioRef.current = audio;
+    
+    // Show loading toast
+    const loadingToastId = 'audio-loading';
+    toast.loading('Loading audio...', { id: loadingToastId });
+    
+    // Add event listeners
     audio.addEventListener('canplay', () => {
-      toast.dismiss('audio-loading');
+      toast.dismiss(loadingToastId);
+      audio.play()
+        .then(() => {
+          setPlayingAyah(ayahKey);
+          setCurrentAudio(audio);
+        })
+        .catch((error) => {
+          console.error('Error playing audio:', error);
+          toast.error('Failed to play audio');
+          setPlayingAyah(null);
+        });
     });
-
-    audio.addEventListener('error', () => {
-      toast.dismiss('audio-loading');
-      toast.error('Failed to load audio');
+    
+    audio.addEventListener('ended', () => {
+      setPlayingAyah(null);
+      setCurrentAudio(null);
     });
-
-    audio.play().catch(() => {
-      toast.error('Failed to play audio');
+    
+    audio.addEventListener('error', (e) => {
+      console.error('Audio error:', e);
+      toast.dismiss(loadingToastId);
+      toast.error('Failed to load audio. Please try another ayah.');
+      setPlayingAyah(null);
     });
-
-    setCurrentAudio(audio);
+    
+    // Start loading the audio
+    audio.load();
   };
 
   const stopAudio = () => {
-    if (currentAudio) {
-      currentAudio.pause();
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
       setCurrentAudio(null);
+      setPlayingAyah(null);
     }
   };
 
@@ -110,11 +162,15 @@ export const QuranProvider = ({ children }) => {
     surahs,
     loading,
     currentAudio,
+    playingAyah,
     audioMappings,
+    tafseerMappings,
     currentSurah,
     setCurrentSurah,
     saveAudioMapping,
+    saveTafseerMapping,
     getAudioUrl,
+    getTafseer,
     playAudio,
     stopAudio,
     fetchSurahVerses

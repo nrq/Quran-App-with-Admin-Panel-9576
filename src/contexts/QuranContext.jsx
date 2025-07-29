@@ -19,6 +19,7 @@ export const QuranProvider = ({ children }) => {
   const [playingAyah, setPlayingAyah] = useState(null);
   const [audioMappings, setAudioMappings] = useState({});
   const [tafseerMappings, setTafseerMappings] = useState({});
+  const [customUrls, setCustomUrls] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentSurah, setCurrentSurah] = useState(null);
   const audioRef = useRef(null);
@@ -40,14 +41,25 @@ export const QuranProvider = ({ children }) => {
     fetchSurahs();
   }, []);
 
-  // Load audio and tafseer mappings from Supabase
+  // Load audio, tafseer mappings and custom URLs from Supabase
   useEffect(() => {
     const fetchMappings = async () => {
       try {
+        // Fetch custom URLs from Supabase
+        const { data: urlsData, error: urlsError } = await supabase
+          .from('custom_urls_qr84fm')
+          .select('*');
+        
+        if (urlsError) throw urlsError;
+        setCustomUrls(urlsData || []);
+        
         // Fetch audio mappings from Supabase
         const { data: audioData, error: audioError } = await supabase
           .from('audio_mappings_qr84fm')
-          .select('*');
+          .select(`
+            *,
+            custom_url: custom_url_id(id, url, title)
+          `);
         
         if (audioError) throw audioError;
         
@@ -55,7 +67,11 @@ export const QuranProvider = ({ children }) => {
         const audioMap = {};
         audioData?.forEach(mapping => {
           const key = `${mapping.surah_number}:${mapping.ayah_number}`;
-          audioMap[key] = mapping.audio_url;
+          audioMap[key] = {
+            url: mapping.audio_url,
+            customUrlId: mapping.custom_url_id,
+            customUrl: mapping.custom_url ? mapping.custom_url.url : null
+          };
         });
         setAudioMappings(audioMap);
         
@@ -100,9 +116,7 @@ export const QuranProvider = ({ children }) => {
         { event: '*', schema: 'public', table: 'audio_mappings_qr84fm' }, 
         payload => {
           if (payload.new) {
-            const { surah_number, ayah_number, audio_url } = payload.new;
-            const key = `${surah_number}:${ayah_number}`;
-            setAudioMappings(prev => ({ ...prev, [key]: audio_url }));
+            fetchUpdatedAudioMapping(payload.new.surah_number, payload.new.ayah_number);
           }
         }
       )
@@ -122,16 +136,175 @@ export const QuranProvider = ({ children }) => {
       )
       .subscribe();
       
+    const urlsSubscription = supabase
+      .channel('url_changes')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'custom_urls_qr84fm' }, 
+        payload => {
+          if (payload.new) {
+            // Refresh custom URLs list
+            fetchCustomUrls();
+            // Update any audio mappings that might use this URL
+            updateAudioMappingsWithUrl(payload.new.id);
+          }
+        }
+      )
+      .subscribe();
+      
     return () => {
       supabase.removeChannel(audioSubscription);
       supabase.removeChannel(tafseerSubscription);
+      supabase.removeChannel(urlsSubscription);
     };
   }, []);
 
-  const saveAudioMapping = async (surahNumber, ayahNumber, audioUrl) => {
+  // Fetch a single updated audio mapping
+  const fetchUpdatedAudioMapping = async (surahNumber, ayahNumber) => {
+    try {
+      const { data, error } = await supabase
+        .from('audio_mappings_qr84fm')
+        .select(`
+          *,
+          custom_url: custom_url_id(id, url, title)
+        `)
+        .eq('surah_number', surahNumber)
+        .eq('ayah_number', ayahNumber)
+        .single();
+        
+      if (error) throw error;
+      
+      if (data) {
+        const key = `${surahNumber}:${ayahNumber}`;
+        setAudioMappings(prev => ({
+          ...prev, 
+          [key]: {
+            url: data.audio_url,
+            customUrlId: data.custom_url_id,
+            customUrl: data.custom_url ? data.custom_url.url : null
+          }
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching updated audio mapping:', error);
+    }
+  };
+
+  // Fetch all custom URLs
+  const fetchCustomUrls = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('custom_urls_qr84fm')
+        .select('*');
+        
+      if (error) throw error;
+      
+      setCustomUrls(data || []);
+    } catch (error) {
+      console.error('Error fetching custom URLs:', error);
+    }
+  };
+
+  // Update audio mappings when a custom URL changes
+  const updateAudioMappingsWithUrl = async (urlId) => {
+    try {
+      const { data, error } = await supabase
+        .from('audio_mappings_qr84fm')
+        .select(`
+          *,
+          custom_url: custom_url_id(id, url, title)
+        `)
+        .eq('custom_url_id', urlId);
+        
+      if (error) throw error;
+      
+      if (data && data.length > 0) {
+        const updatedMappings = { ...audioMappings };
+        
+        data.forEach(mapping => {
+          const key = `${mapping.surah_number}:${mapping.ayah_number}`;
+          updatedMappings[key] = {
+            url: mapping.audio_url,
+            customUrlId: mapping.custom_url_id,
+            customUrl: mapping.custom_url ? mapping.custom_url.url : null
+          };
+        });
+        
+        setAudioMappings(updatedMappings);
+      }
+    } catch (error) {
+      console.error('Error updating audio mappings with URL:', error);
+    }
+  };
+
+  // Create or update a custom URL
+  const saveCustomUrl = async (url, title = '', description = '') => {
+    try {
+      // Check if URL already exists
+      const { data: existingUrl, error: checkError } = await supabase
+        .from('custom_urls_qr84fm')
+        .select('id')
+        .eq('url', url)
+        .maybeSingle();
+        
+      if (checkError) throw checkError;
+      
+      let urlId;
+      
+      if (existingUrl) {
+        // Update existing URL
+        const { data, error } = await supabase
+          .from('custom_urls_qr84fm')
+          .update({ 
+            title, 
+            description,
+            updated_at: new Date()
+          })
+          .eq('id', existingUrl.id)
+          .select('id')
+          .single();
+          
+        if (error) throw error;
+        urlId = data.id;
+      } else {
+        // Create new URL
+        const { data, error } = await supabase
+          .from('custom_urls_qr84fm')
+          .insert({ 
+            url, 
+            title, 
+            description,
+            created_at: new Date(),
+            updated_at: new Date()
+          })
+          .select('id')
+          .single();
+          
+        if (error) throw error;
+        urlId = data.id;
+      }
+      
+      // Refresh custom URLs list
+      fetchCustomUrls();
+      
+      return urlId;
+    } catch (error) {
+      console.error('Error saving custom URL:', error);
+      toast.error('Failed to save custom URL');
+      return null;
+    }
+  };
+
+  const saveAudioMapping = async (surahNumber, ayahNumber, audioUrl, customUrlTitle = '') => {
     const key = `${surahNumber}:${ayahNumber}`;
     
     try {
+      // First save or get the custom URL
+      let customUrlId = null;
+      
+      if (audioUrl) {
+        customUrlId = await saveCustomUrl(audioUrl, customUrlTitle || `Audio for ${surahNumber}:${ayahNumber}`);
+      }
+      
       // Save to Supabase
       const { error } = await supabase
         .from('audio_mappings_qr84fm')
@@ -139,6 +312,7 @@ export const QuranProvider = ({ children }) => {
           surah_number: surahNumber, 
           ayah_number: ayahNumber, 
           audio_url: audioUrl,
+          custom_url_id: customUrlId,
           updated_at: new Date()
         }, { 
           onConflict: 'surah_number,ayah_number' 
@@ -147,22 +321,37 @@ export const QuranProvider = ({ children }) => {
       if (error) throw error;
       
       // Update local state
-      const newMappings = { ...audioMappings, [key]: audioUrl };
+      const newMappings = { 
+        ...audioMappings, 
+        [key]: {
+          url: audioUrl,
+          customUrlId,
+          customUrl: audioUrl
+        }
+      };
       setAudioMappings(newMappings);
       
       // Backup to localStorage
       localStorage.setItem('quran_audio_mappings', JSON.stringify(newMappings));
       
       toast.success('Audio mapping saved successfully');
+      return true;
     } catch (error) {
       console.error('Error saving audio mapping:', error);
       
       // Fallback to localStorage only if Supabase fails
-      const newMappings = { ...audioMappings, [key]: audioUrl };
+      const newMappings = { 
+        ...audioMappings, 
+        [key]: {
+          url: audioUrl,
+          customUrl: audioUrl
+        }
+      };
       setAudioMappings(newMappings);
       localStorage.setItem('quran_audio_mappings', JSON.stringify(newMappings));
       
       toast.success('Audio mapping saved locally');
+      return false;
     }
   };
 
@@ -206,7 +395,20 @@ export const QuranProvider = ({ children }) => {
 
   const getAudioUrl = (surahNumber, ayahNumber) => {
     const key = `${surahNumber}:${ayahNumber}`;
-    return audioMappings[key] || `https://everyayah.com/data/Alafasy_128kbps/${String(surahNumber).padStart(3, '0')}${String(ayahNumber).padStart(3, '0')}.mp3`;
+    const mapping = audioMappings[key];
+    
+    // If we have a custom URL stored in Supabase, use that
+    if (mapping && mapping.customUrl) {
+      return mapping.customUrl;
+    }
+    
+    // If we have a direct URL stored, use that
+    if (mapping && mapping.url) {
+      return mapping.url;
+    }
+    
+    // Fall back to the default URL pattern
+    return `https://everyayah.com/data/Alafasy_128kbps/${String(surahNumber).padStart(3, '0')}${String(ayahNumber).padStart(3, '0')}.mp3`;
   };
 
   const getTafseer = (surahNumber, ayahNumber) => {
@@ -294,15 +496,18 @@ export const QuranProvider = ({ children }) => {
     playingAyah,
     audioMappings,
     tafseerMappings,
+    customUrls,
     currentSurah,
     setCurrentSurah,
     saveAudioMapping,
     saveTafseerMapping,
+    saveCustomUrl,
     getAudioUrl,
     getTafseer,
     playAudio,
     stopAudio,
-    fetchSurahVerses
+    fetchSurahVerses,
+    fetchCustomUrls
   };
 
   return <QuranContext.Provider value={value}>{children}</QuranContext.Provider>;

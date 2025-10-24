@@ -10,7 +10,7 @@ const { FiArrowLeft, FiBook, FiMapPin, FiPlay, FiPause } = FiIcons;
 
 const Surah = () => {
   const { surahNumber } = useParams();
-  const { surahs, fetchSurahVerses, setCurrentSurah, playingAyah, isPaused } = useQuran();
+  const { surahs, fetchSurahVerses, setCurrentSurah, playingAyah, isPaused, playAudio, pauseAudio, resumeAudio, stopAudio } = useQuran();
   const [verses, setVerses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [surah, setSurah] = useState(null);
@@ -29,6 +29,46 @@ const Surah = () => {
   };
 
   const currentlyPlayingVerse = getCurrentlyPlayingVerse();
+
+  // Audio control handlers
+  const handlePlayPause = () => {
+    if (!currentlyPlayingVerse) return;
+    
+    if (isPaused) {
+      resumeAudio();
+    } else {
+      pauseAudio();
+    }
+  };
+
+  const handleStop = () => {
+    stopAudio();
+  };
+
+  const handlePreviousAyah = () => {
+    if (!currentlyPlayingVerse || currentlyPlayingVerse.verse_number <= 1) return;
+    
+    const prevAyahNumber = currentlyPlayingVerse.verse_number - 1;
+    playAudio(parseInt(surahNumber), prevAyahNumber);
+  };
+
+  const handleNextAyah = () => {
+    if (!currentlyPlayingVerse || !surah || currentlyPlayingVerse.verse_number >= surah.verses_count) return;
+    
+    const nextAyahNumber = currentlyPlayingVerse.verse_number + 1;
+    playAudio(parseInt(surahNumber), nextAyahNumber);
+  };
+
+  // Scroll to specific ayah
+  const scrollToAyah = (ayahNumber) => {
+    const ayahElement = document.querySelector(`[data-ayah="${ayahNumber}"]`);
+    if (ayahElement) {
+      ayahElement.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'center' 
+      });
+    }
+  };
 
   // DEBUG: Track page navigation/reload
   useEffect(() => {
@@ -101,16 +141,17 @@ const Surah = () => {
 
   return (
     <div className="space-y-8">
-      {/* Sticky Now Playing Header */}
+      {/* Sticky Audio Player at Bottom */}
       {currentlyPlayingVerse && (
         <motion.div 
-          initial={{ opacity: 0, y: -100 }}
+          initial={{ opacity: 0, y: 100 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -100 }}
-          className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-islamic-gold to-yellow-600 text-white shadow-lg border-b-2 border-yellow-700"
+          exit={{ opacity: 0, y: 100 }}
+          className="fixed bottom-0 left-0 right-0 z-50 bg-gradient-to-r from-islamic-gold to-yellow-600 text-white shadow-lg border-t-2 border-yellow-700"
         >
-          <div className="max-w-6xl mx-auto px-4 py-3">
-            <div className="flex items-center justify-between">
+          <div className="max-w-6xl mx-auto px-4 py-4">
+            {/* Now Playing Info */}
+            <div className="flex items-center justify-between mb-3">
               <div className="flex items-center space-x-3">
                 <div className="flex items-center space-x-2">
                   <div className="w-8 h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
@@ -123,9 +164,13 @@ const Surah = () => {
                     <div className="font-semibold text-sm">
                       Now Playing
                     </div>
-                    <div className="text-xs opacity-90">
-                      {surah?.name_simple} - Ayah {currentlyPlayingVerse.verse_number}
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => scrollToAyah(currentlyPlayingVerse.verse_number)}
+                      className="text-xs opacity-90 hover:opacity-100 hover:underline cursor-pointer"
+                    >
+                      {surah?.name_simple} - Ayah {currentlyPlayingVerse.verse_number} (Click to scroll)
+                    </button>
                   </div>
                 </div>
               </div>
@@ -142,12 +187,52 @@ const Surah = () => {
                 )}
               </div>
             </div>
+
+            {/* Audio Controls */}
+            <div className="flex items-center justify-center space-x-4">
+              <button
+                type="button"
+                onClick={handlePreviousAyah}
+                disabled={currentlyPlayingVerse.verse_number <= 1}
+                className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <SafeIcon icon={FiArrowLeft} className="text-lg" />
+              </button>
+
+              <button
+                type="button"
+                onClick={handlePlayPause}
+                className="w-12 h-12 bg-white bg-opacity-30 rounded-full flex items-center justify-center hover:bg-opacity-40 transition-colors"
+              >
+                <SafeIcon 
+                  icon={isPaused ? FiPlay : FiPause} 
+                  className="text-xl" 
+                />
+              </button>
+
+              <button
+                type="button"
+                onClick={handleStop}
+                className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30 transition-colors"
+              >
+                <div className="w-3 h-3 bg-white rounded-sm"></div>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleNextAyah}
+                disabled={!surah || currentlyPlayingVerse.verse_number >= surah.verses_count}
+                className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <SafeIcon icon={FiArrowLeft} className="text-lg rotate-180" />
+              </button>
+            </div>
           </div>
         </motion.div>
       )}
 
-      {/* Add top padding when sticky header is visible */}
-      <div className={currentlyPlayingVerse ? 'pt-24' : ''}>
+      {/* Add bottom padding when sticky player is visible */}
+      <div className={currentlyPlayingVerse ? 'pb-32' : ''}>
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -202,12 +287,13 @@ const Surah = () => {
 
         <div className="space-y-6" id="verses-container">
           {verses.map((verse, index) => (
-            <AyahCard 
-              key={verse.verse_key} 
-              verse={verse} 
-              surahNumber={parseInt(surahNumber)} 
-              index={0} // Remove staggered animation to improve performance
-            />
+            <div key={verse.verse_key} data-ayah={verse.verse_number}>
+              <AyahCard 
+                verse={verse} 
+                surahNumber={parseInt(surahNumber)} 
+                index={0} // Remove staggered animation to improve performance
+              />
+            </div>
           ))}
         </div>
       </div>

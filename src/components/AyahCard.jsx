@@ -14,20 +14,70 @@ const AyahCard = ({ verse, surahNumber, index }) => {
   const isPlaying = playingAyah === ayahKey;
   const tafseerText = getTafseer(surahNumber, verse.verse_number);
 
+  // DEBUG: Track scroll events
+  useEffect(() => {
+    let lastScrollY = window.scrollY;
+    let scrollTimeout;
+
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      const scrollDiff = Math.abs(currentScrollY - lastScrollY);
+      
+      // Only log significant scroll jumps
+      if (scrollDiff > 100) {
+        console.log(`📜 [Scroll] Large scroll jump detected: ${lastScrollY} → ${currentScrollY} (diff: ${scrollDiff})`);
+      }
+      
+      lastScrollY = currentScrollY;
+      
+      // Clear previous timeout
+      if (scrollTimeout) {
+        clearTimeout(scrollTimeout);
+      }
+      
+      // Set new timeout to detect scroll end
+      scrollTimeout = setTimeout(() => {
+        console.log(`📜 [Scroll] Scroll ended at: ${window.scrollY}`);
+      }, 150);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (scrollTimeout) {
+        clearTimeout(scrollTimeout);
+      }
+    };
+  }, []);
+
   const handlePlayAudio = () => {
+    // DEBUG: Track scroll position before audio action
+    const scrollBefore = window.scrollY;
+    console.log(`🎵 [AyahCard] Play button clicked - Scroll before: ${scrollBefore}`);
+    
     // Simple approach - just call the audio functions
     setIsAudioLoaded(false);
     
     if (isPlaying && !isPaused) {
       // Currently playing and not paused -> pause it
+      console.log(`🎵 [AyahCard] Pausing audio for ${ayahKey}`);
       pauseAudio();
     } else if (isPlaying && isPaused) {
       // Currently playing but paused -> resume it
+      console.log(`🎵 [AyahCard] Resuming audio for ${ayahKey}`);
       resumeAudio();
     } else {
       // Not playing -> play it
+      console.log(`🎵 [AyahCard] Starting audio for ${ayahKey}`);
       playAudio(surahNumber, verse.verse_number);
     }
+    
+    // DEBUG: Track scroll position after audio action
+    setTimeout(() => {
+      const scrollAfter = window.scrollY;
+      console.log(`🎵 [AyahCard] Scroll after audio action: ${scrollAfter} (diff: ${scrollAfter - scrollBefore})`);
+    }, 100);
   };
 
   // Reset audio loaded state when playingAyah changes
@@ -43,9 +93,9 @@ const AyahCard = ({ verse, surahNumber, index }) => {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.1 }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.2 }}
       className={`ayah-card bg-white rounded-xl p-6 shadow-md ${isPlaying ? 'playing' : ''}`}
     >
       <div className="flex items-start justify-between mb-4">

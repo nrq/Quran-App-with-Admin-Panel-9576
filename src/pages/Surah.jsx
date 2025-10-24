@@ -15,6 +15,31 @@ const Surah = () => {
   const [loading, setLoading] = useState(true);
   const [surah, setSurah] = useState(null);
 
+  // DEBUG: Track page navigation/reload
+  useEffect(() => {
+    console.log(`📄 [Surah] Page loaded/reloaded for surah ${surahNumber}`);
+    
+    const handleBeforeUnload = (e) => {
+      console.log(`📄 [Surah] Page about to unload/reload`);
+    };
+    
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        console.log(`📄 [Surah] Page hidden`);
+      } else {
+        console.log(`📄 [Surah] Page visible`);
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [surahNumber]);
+
   useEffect(() => {
     const loadSurah = async () => {
       setLoading(true);
@@ -119,7 +144,7 @@ const Surah = () => {
             key={verse.verse_key} 
             verse={verse} 
             surahNumber={parseInt(surahNumber)} 
-            index={index} 
+            index={0} // Remove staggered animation to improve performance
           />
         ))}
       </div>

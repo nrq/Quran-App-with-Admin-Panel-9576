@@ -757,17 +757,33 @@ export const QuranProvider = ({ children }) => {
   }, []); // Empty dependency array - run once on mount
 
   const pauseAudio = () => {
+    const scrollBeforePause = window.scrollY;
+    console.log(`🎵 [QuranContext] pauseAudio called - Scroll before: ${scrollBeforePause}`);
+    
     if (audioRef.current && playingAyah && !isPaused) {
       audioRef.current.pause();
       setIsPaused(true);
+      
+      setTimeout(() => {
+        const scrollAfterPause = window.scrollY;
+        console.log(`🎵 [QuranContext] Audio paused - Scroll after: ${scrollAfterPause} (diff: ${scrollAfterPause - scrollBeforePause})`);
+      }, 50);
     }
   };
 
   const resumeAudio = () => {
+    const scrollBeforeResume = window.scrollY;
+    console.log(`🎵 [QuranContext] resumeAudio called - Scroll before: ${scrollBeforeResume}`);
+    
     if (audioRef.current && playingAyah && isPaused) {
       audioRef.current.play()
         .then(() => {
           setIsPaused(false);
+          
+          setTimeout(() => {
+            const scrollAfterResume = window.scrollY;
+            console.log(`🎵 [QuranContext] Audio resumed - Scroll after: ${scrollAfterResume} (diff: ${scrollAfterResume - scrollBeforeResume})`);
+          }, 50);
         })
         .catch((error) => {
           console.error('Error resuming audio:', error);
@@ -777,9 +793,14 @@ export const QuranProvider = ({ children }) => {
   };
 
   const playAudio = (surahNumber, ayahNumber, autoPlayNext = true) => {
+    // DEBUG: Track scroll position at start
+    const scrollStart = window.scrollY;
+    console.log(`🎵 [QuranContext] playAudio called - Scroll at start: ${scrollStart}`);
+    
     // If same ayah is playing, check pause state
     const ayahKey = `${surahNumber}:${ayahNumber}`;
     if (audioRef.current && playingAyah === ayahKey) {
+      console.log(`🎵 [QuranContext] Same ayah playing, toggling state`);
       if (isPaused) {
         // Resume from paused state
         resumeAudio();
@@ -792,12 +813,14 @@ export const QuranProvider = ({ children }) => {
 
     // If there's already audio playing, stop it
     if (audioRef.current) {
+      console.log(`🎵 [QuranContext] Stopping previous audio`);
       audioRef.current.pause();
       audioRef.current = null;
     }
     
     // Get the audio URL
     const audioUrl = getAudioUrl(surahNumber, ayahNumber);
+    console.log(`🎵 [QuranContext] Audio URL: ${audioUrl}`);
     
     // Create a new audio element
     const audio = new Audio(audioUrl);
@@ -810,11 +833,14 @@ export const QuranProvider = ({ children }) => {
     
     // Add event listeners
     audio.addEventListener('canplay', () => {
+      console.log(`🎵 [QuranContext] Audio can play - Scroll before play: ${window.scrollY}`);
       toast.dismiss(loadingToastId);
       audio.play()
         .then(() => {
+          console.log(`🎵 [QuranContext] Audio started playing - Scroll after play: ${window.scrollY}`);
           setPlayingAyah(ayahKey);
           setCurrentAudio(audio);
+          setIsPaused(false);
         })
         .catch((error) => {
           console.error('Error playing audio:', error);
@@ -824,8 +850,10 @@ export const QuranProvider = ({ children }) => {
     });
     
     audio.addEventListener('ended', () => {
+      console.log(`🎵 [QuranContext] Audio ended`);
       setPlayingAyah(null);
       setCurrentAudio(null);
+      setIsPaused(false);
       
       // Auto-play next ayah if enabled
       if (autoPlayNext) {
@@ -847,6 +875,7 @@ export const QuranProvider = ({ children }) => {
     });
     
     // Start loading the audio
+    console.log(`🎵 [QuranContext] Starting audio load`);
     audio.load();
   };
 

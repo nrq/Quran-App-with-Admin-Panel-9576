@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
+import { Howl } from 'howler';
 import { db } from '../lib/firebase';
 import { 
   collection, 
@@ -769,14 +770,8 @@ export const QuranProvider = ({ children }) => {
     console.log(`🎵 [QuranContext] resumeAudio called`);
     
     if (audioRef.current && playingAyah && isPaused) {
-      audioRef.current.play()
-        .then(() => {
-          setIsPaused(false);
-        })
-        .catch((error) => {
-          console.error('Error resuming audio:', error);
-          toast.error('Failed to resume audio');
-        });
+      audioRef.current.play();
+      setIsPaused(false);
     }
   };
 
@@ -800,7 +795,8 @@ export const QuranProvider = ({ children }) => {
     // If there's already audio playing, stop it
     if (audioRef.current) {
       console.log(`🎵 [QuranContext] Stopping previous audio`);
-      audioRef.current.pause();
+      audioRef.current.stop();
+      audioRef.current.unload();
       audioRef.current = null;
     }
     
@@ -808,75 +804,81 @@ export const QuranProvider = ({ children }) => {
     const audioUrl = getAudioUrl(surahNumber, ayahNumber);
     console.log(`🎵 [QuranContext] Audio URL: ${audioUrl}`);
     
-    // Create a new audio element
-    const audio = new Audio(audioUrl);
-    
-    // Set the audio reference
-    audioRef.current = audio;
-    
     // Show loading toast
     const loadingToastId = toast.loading('Loading audio...');
     
-    // Add event listeners
-    audio.addEventListener('canplay', () => {
-      console.log(`🎵 [QuranContext] Audio can play`);
-      toast.dismiss(loadingToastId);
-      audio.play()
-        .then(() => {
-          console.log(`🎵 [QuranContext] Audio started playing`);
-          
-          // Set state - scroll lock should handle position
-          setPlayingAyah(ayahKey);
-          setCurrentAudio(audio);
-          setIsPaused(false);
-        })
-        .catch((error) => {
-          console.error('Error playing audio:', error);
-          toast.error('Failed to play audio');
-          setPlayingAyah(null);
-        });
-    });
-    
-    audio.addEventListener('ended', () => {
-      console.log(`🎵 [QuranContext] Audio ended`);
-      
-      // Lock scroll position for auto-play transition
-      const scrollBeforeEnd = window.scrollY;
-      if (window.lockScroll) {
-        window.lockScroll(scrollBeforeEnd);
-      }
-      
-      setPlayingAyah(null);
-      setCurrentAudio(null);
-      setIsPaused(false);
-      
-      // Auto-play next ayah if enabled
-      if (autoPlayNext) {
-        const currentSurahData = surahs.find(s => s.id === surahNumber);
-        if (currentSurahData && ayahNumber < currentSurahData.verses_count) {
-          // Play next ayah after a short delay
-          setTimeout(() => {
-            playAudio(surahNumber, ayahNumber + 1, true);
-          }, 500);
+    // Create Howler audio instance
+    const howl = new Howl({
+      src: [audioUrl],
+      format: ['mp3'],
+      preload: true,
+      onload: () => {
+        console.log(`🎵 [QuranContext] Howler audio loaded`);
+        toast.dismiss(loadingToastId);
+      },
+      onplay: () => {
+        console.log(`🎵 [QuranContext] Howler audio started playing`);
+        setPlayingAyah(ayahKey);
+        setCurrentAudio(howl);
+        setIsPaused(false);
+      },
+      onpause: () => {
+        console.log(`🎵 [QuranContext] Howler audio paused`);
+        setIsPaused(true);
+      },
+      onresume: () => {
+        console.log(`🎵 [QuranContext] Howler audio resumed`);
+        setIsPaused(false);
+      },
+      onend: () => {
+        console.log(`🎵 [QuranContext] Howler audio ended`);
+        
+        // Lock scroll position for auto-play transition
+        const scrollBeforeEnd = window.scrollY;
+        if (window.lockScroll) {
+          window.lockScroll(scrollBeforeEnd);
         }
+        
+        setPlayingAyah(null);
+        setCurrentAudio(null);
+        setIsPaused(false);
+        
+        // Auto-play next ayah if enabled
+        if (autoPlayNext) {
+          const currentSurahData = surahs.find(s => s.id === surahNumber);
+          if (currentSurahData && ayahNumber < currentSurahData.verses_count) {
+            // Play next ayah after a short delay
+            setTimeout(() => {
+              playAudio(surahNumber, ayahNumber + 1, true);
+            }, 500);
+          }
+        }
+      },
+      onloaderror: (id, error) => {
+        console.error('Howler load error:', error);
+        toast.dismiss(loadingToastId);
+        toast.error('Failed to load audio. Please try another ayah.');
+        setPlayingAyah(null);
+      },
+      onplayerror: (id, error) => {
+        console.error('Howler play error:', error);
+        toast.error('Failed to play audio. Please try again.');
+        setPlayingAyah(null);
       }
     });
     
-    audio.addEventListener('error', (e) => {
-      console.error('Audio error:', e);
-      toast.dismiss(loadingToastId);
-      toast.error('Failed to load audio. Please try another ayah.');
-      setPlayingAyah(null);
-    });
+    // Set the audio reference
+    audioRef.current = howl;
     
-    // Start loading the audio
-    console.log(`🎵 [QuranContext] Starting audio load`);
-    audio.load();
+    // Start playing
+    console.log(`🎵 [QuranContext] Starting Howler playback`);
+    howl.play();
   };
 
   const stopAudio = () => {
     if (audioRef.current) {
-      audioRef.current.pause();
+      audioRef.current.stop();
+      audioRef.current.unload();
       audioRef.current = null;
       setCurrentAudio(null);
       setPlayingAyah(null);

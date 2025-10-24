@@ -34,6 +34,8 @@ export const QuranProvider = ({ children }) => {
   const [customUrls, setCustomUrls] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentSurah, setCurrentSurah] = useState(null);
+  const [isPaused, setIsPaused] = useState(false);
+  const [lastPlayedPosition, setLastPlayedPosition] = useState(null);
   const audioRef = useRef(null);
 
   // Load Quran chapters list from offline data
@@ -605,12 +607,37 @@ export const QuranProvider = ({ children }) => {
     return tafseerMappings[key] || '';
   };
 
+  const pauseAudio = () => {
+    if (audioRef.current && playingAyah && !isPaused) {
+      audioRef.current.pause();
+      setIsPaused(true);
+    }
+  };
+
+  const resumeAudio = () => {
+    if (audioRef.current && playingAyah && isPaused) {
+      audioRef.current.play()
+        .then(() => {
+          setIsPaused(false);
+        })
+        .catch((error) => {
+          console.error('Error resuming audio:', error);
+          toast.error('Failed to resume audio');
+        });
+    }
+  };
+
   const playAudio = (surahNumber, ayahNumber, autoPlayNext = true) => {
-    // If same ayah is playing, just pause it
+    // If same ayah is playing, check pause state
     const ayahKey = `${surahNumber}:${ayahNumber}`;
     if (audioRef.current && playingAyah === ayahKey) {
-      audioRef.current.pause();
-      setPlayingAyah(null);
+      if (isPaused) {
+        // Resume from paused state
+        resumeAudio();
+      } else {
+        // Pause the currently playing audio
+        pauseAudio();
+      }
       return;
     }
 
@@ -680,6 +707,7 @@ export const QuranProvider = ({ children }) => {
       audioRef.current = null;
       setCurrentAudio(null);
       setPlayingAyah(null);
+      setIsPaused(false);
     }
   };
 

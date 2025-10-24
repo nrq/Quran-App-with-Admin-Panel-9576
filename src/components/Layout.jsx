@@ -18,7 +18,7 @@ const Layout = () => {
               <div className="w-10 h-10 bg-gradient-to-br from-islamic-gold to-yellow-600 rounded-lg flex items-center justify-center">
                 <SafeIcon icon={FiBook} className="text-white text-xl" />
               </div>
-              <span className="text-2xl font-bold text-islamic-800">Al-Quran</span>
+              <span className="text-2xl font-bold text-islamic-800">NurulQuran</span>
             </Link>
 
             <div className="flex items-center space-x-6">

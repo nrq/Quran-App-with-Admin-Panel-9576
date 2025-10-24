@@ -19,12 +19,25 @@ const AyahCard = ({ verse, surahNumber, index }) => {
     e.preventDefault();
     e.stopPropagation();
     
+    // Capture current scroll position
+    const currentScroll = window.scrollY;
+    
+    // Remove focus from button to prevent focus-based scrolling
+    if (e.target) {
+      e.target.blur();
+    }
+    
     setIsAudioLoaded(false);
     if (isPlaying) {
       stopAudio();
     } else {
       playAudio(surahNumber, verse.verse_number);
     }
+    
+    // Restore scroll position after React render
+    requestAnimationFrame(() => {
+      window.scrollTo(0, currentScroll);
+    });
   };
 
   // Reset audio loaded state when playingAyah changes

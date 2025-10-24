@@ -10,6 +10,7 @@
     "build:prod": "npm run validate:env && npm run lint && vite build --mode production",
     "validate:env": "node scripts/validate-env.js",
     "test:build": "node scripts/test-production-build.js",
+    "test:firestore": "node scripts/test-firestore.js",
     "lint": "eslint .",
     "lint:error": "eslint . --quiet",
     "preview": "vite preview",

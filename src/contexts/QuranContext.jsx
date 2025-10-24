@@ -798,7 +798,7 @@ export const QuranProvider = ({ children }) => {
   };
 
   const playAudio = (surahNumber, ayahNumber, autoPlayNext = true) => {
-    // Capture scroll position to prevent any jumps
+    // PREVENT ANY SCROLL JUMPING - Capture position immediately
     const scrollPosition = window.scrollY;
     
     // If same ayah is playing, check pause state
@@ -811,7 +811,7 @@ export const QuranProvider = ({ children }) => {
         // Pause the currently playing audio
         pauseAudio();
       }
-      // Restore scroll position
+      // Restore scroll position immediately
       window.scrollTo({ top: scrollPosition, left: 0, behavior: 'instant' });
       return;
     }
@@ -820,20 +820,22 @@ export const QuranProvider = ({ children }) => {
     if (audioRef.current) {
       try {
         audioRef.current.pause();
-        audioRef.current.src = ''; // Clear source to free memory
         audioRef.current = null;
       } catch (error) {
         console.error('Error stopping previous audio:', error);
       }
     }
     
-    // Get the audio URL
+    // Get the audio URL - MUST have valid URL
     const audioUrl = getAudioUrl(surahNumber, ayahNumber);
+    if (!audioUrl) {
+      toast.error('Audio URL not found');
+      return;
+    }
     
-    // Create a new audio element with better configuration
-    const audio = new Audio();
+    // Create audio element with the URL immediately to prevent empty src error
+    const audio = new Audio(audioUrl);
     audio.preload = 'auto';
-    audio.src = audioUrl;
     
     // Set the audio reference
     audioRef.current = audio;
@@ -844,8 +846,8 @@ export const QuranProvider = ({ children }) => {
     // Track if audio has started playing
     let hasStartedPlaying = false;
     
-    // Add event listeners with better error handling
-    const handleCanPlay = () => {
+    // Add event listeners
+    audio.addEventListener('canplay', () => {
       if (!hasStartedPlaying) {
         toast.dismiss(loadingToastId);
         audio.play()
@@ -855,7 +857,9 @@ export const QuranProvider = ({ children }) => {
             setCurrentAudio(audio);
             setIsPaused(false);
             // Restore scroll position after state update
-            window.scrollTo({ top: scrollPosition, left: 0, behavior: 'instant' });
+            setTimeout(() => {
+              window.scrollTo({ top: scrollPosition, left: 0, behavior: 'instant' });
+            }, 0);
           })
           .catch((error) => {
             console.error('Error playing audio:', error);
@@ -864,9 +868,9 @@ export const QuranProvider = ({ children }) => {
             setIsPaused(false);
           });
       }
-    };
+    });
     
-    const handleEnded = () => {
+    audio.addEventListener('ended', () => {
       setPlayingAyah(null);
       setCurrentAudio(null);
       setIsPaused(false);
@@ -881,31 +885,20 @@ export const QuranProvider = ({ children }) => {
           }, 500);
         }
       }
-    };
+    });
     
-    const handleError = (e) => {
+    audio.addEventListener('error', (e) => {
       console.error('Audio error:', e);
       toast.dismiss(loadingToastId);
-      
-      // Provide more specific error messages
-      const errorMessage = audio.error 
-        ? `Audio error: ${audio.error.message || 'Unknown error'}` 
-        : 'Failed to load audio. Please check your connection.';
-      
-      toast.error(errorMessage);
+      toast.error('Failed to load audio. Please try another ayah.');
       setPlayingAyah(null);
       setIsPaused(false);
-    };
+    });
     
-    const handleLoadStart = () => {
-      // Restore scroll position when loading starts
+    // Restore scroll position when loading starts
+    audio.addEventListener('loadstart', () => {
       window.scrollTo({ top: scrollPosition, left: 0, behavior: 'instant' });
-    };
-    
-    audio.addEventListener('canplay', handleCanPlay);
-    audio.addEventListener('ended', handleEnded);
-    audio.addEventListener('error', handleError);
-    audio.addEventListener('loadstart', handleLoadStart);
+    });
     
     // Start loading the audio
     try {

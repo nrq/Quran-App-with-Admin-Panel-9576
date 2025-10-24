@@ -5,7 +5,9 @@ import SafeIcon from '../common/SafeIcon';
 import { useAuth } from '../contexts/AuthContext';
 import { useQuran } from '../contexts/QuranContext';
 import toast from 'react-hot-toast';
-import supabase from '../lib/supabase';
+import { db } from '../lib/firebase';
+import { collection, writeBatch, doc, updateDoc, deleteDoc, query, where, getDocs } from 'firebase/firestore';
+import { handleFirebaseError, logFirebaseError } from '../utils/firebaseErrorHandler';
 
 const { FiLogOut, FiMusic, FiSave, FiPlay, FiSearch, FiBook, FiDatabase, FiRefreshCw, FiLink, FiEdit, FiExternalLink, FiPlus } = FiIcons;
 
@@ -116,8 +118,8 @@ const AdminPanel = () => {
     });
   };
 
-  // Sync local storage data with Supabase
-  const syncWithSupabase = async () => {
+  // Sync local storage data with Firebase
+  const syncWithFirebase = async () => {
     setSyncStatus('syncing');
     try {
       // Get local data
@@ -148,21 +150,40 @@ const AdminPanel = () => {
         };
       });
       
-      // Execute batch upserts
+      // Execute batch writes using Firestore
+      // Firestore has a limit of 500 operations per batch
+      const batchSize = 500;
+      
+      // Process audio entries in batches
       if (audioEntries.length > 0) {
-        const { error: audioError } = await supabase
-          .from('audio_mappings_qr84fm')
-          .upsert(audioEntries, { onConflict: 'surah_number,ayah_number' });
+        for (let i = 0; i < audioEntries.length; i += batchSize) {
+          const batch = writeBatch(db);
+          const batchEntries = audioEntries.slice(i, i + batchSize);
           
-        if (audioError) throw audioError;
+          batchEntries.forEach(entry => {
+            const docId = `${entry.surah_number}_${entry.ayah_number}`;
+            const docRef = doc(db, 'audio_mappings', docId);
+            batch.set(docRef, entry, { merge: true });
+          });
+          
+          await batch.commit();
+        }
       }
       
+      // Process tafseer entries in batches
       if (tafseerEntries.length > 0) {
-        const { error: tafseerError } = await supabase
-          .from('tafseer_entries_qr84fm')
-          .upsert(tafseerEntries, { onConflict: 'surah_number,ayah_number' });
+        for (let i = 0; i < tafseerEntries.length; i += batchSize) {
+          const batch = writeBatch(db);
+          const batchEntries = tafseerEntries.slice(i, i + batchSize);
           
-        if (tafseerError) throw tafseerError;
+          batchEntries.forEach(entry => {
+            const docId = `${entry.surah_number}_${entry.ayah_number}`;
+            const docRef = doc(db, 'tafseer_entries', docId);
+            batch.set(docRef, entry, { merge: true });
+          });
+          
+          await batch.commit();
+        }
       }
       
       setSyncStatus('success');
@@ -174,9 +195,13 @@ const AdminPanel = () => {
       // Reset after 3 seconds
       setTimeout(() => setSyncStatus('idle'), 3000);
     } catch (error) {
-      console.error('Error syncing with Supabase:', error);
+      console.error('Error syncing with Firebase:', error);
       setSyncStatus('error');
-      toast.error('Failed to sync with database');
+      
+      // Handle Firebase-specific errors
+      logFirebaseError('Sync with Firebase', error);
+      const errorMessage = handleFirebaseError(error);
+      toast.error(errorMessage);
       
       // Reset after 3 seconds
       setTimeout(() => setSyncStatus('idle'), 3000);
@@ -190,24 +215,15 @@ const AdminPanel = () => {
     }
     
     try {
-      let result;
-      
       if (editingUrlId) {
-        // Update existing URL
-        const { data, error } = await supabase
-          .from('custom_urls_qr84fm')
-          .update({
-            url: newUrl,
-            title: newUrlTitle,
-            description: newUrlDescription,
-            updated_at: new Date()
-          })
-          .eq('id', editingUrlId)
-          .select()
-          .single();
-          
-        if (error) throw error;
-        result = data;
+        // Update existing URL using Firestore
+        const urlRef = doc(db, 'custom_urls', editingUrlId);
+        await updateDoc(urlRef, {
+          url: newUrl,
+          title: newUrlTitle,
+          description: newUrlDescription,
+          updated_at: new Date()
+        });
         
         toast.success('URL updated successfully');
       } else {
@@ -231,8 +247,9 @@ const AdminPanel = () => {
       // Refresh custom URLs list
       fetchCustomUrls();
     } catch (error) {
-      console.error('Error saving custom URL:', error);
-      toast.error('Failed to save custom URL');
+      logFirebaseError('Save Custom URL', error);
+      const errorMessage = handleFirebaseError(error);
+      toast.error(errorMessage);
     }
   };
 
@@ -248,28 +265,31 @@ const AdminPanel = () => {
     if (window.confirm('Are you sure you want to delete this URL? This may affect any audio mappings using it.')) {
       try {
         // First update any audio mappings using this URL
-        const { error: updateError } = await supabase
-          .from('audio_mappings_qr84fm')
-          .update({ custom_url_id: null })
-          .eq('custom_url_id', urlId);
-          
-        if (updateError) throw updateError;
+        const audioMappingsRef = collection(db, 'audio_mappings');
+        const q = query(audioMappingsRef, where('custom_url_id', '==', urlId));
+        const querySnapshot = await getDocs(q);
+        
+        // Use batch to update all affected audio mappings
+        if (!querySnapshot.empty) {
+          const batch = writeBatch(db);
+          querySnapshot.forEach((docSnapshot) => {
+            batch.update(docSnapshot.ref, { custom_url_id: null });
+          });
+          await batch.commit();
+        }
         
         // Then delete the URL
-        const { error: deleteError } = await supabase
-          .from('custom_urls_qr84fm')
-          .delete()
-          .eq('id', urlId);
-          
-        if (deleteError) throw deleteError;
+        const urlRef = doc(db, 'custom_urls', urlId);
+        await deleteDoc(urlRef);
         
         toast.success('URL deleted successfully');
         
         // Refresh custom URLs list
         fetchCustomUrls();
       } catch (error) {
-        console.error('Error deleting custom URL:', error);
-        toast.error('Failed to delete custom URL');
+        logFirebaseError('Delete Custom URL', error);
+        const errorMessage = handleFirebaseError(error);
+        toast.error(errorMessage);
       }
     }
   };
@@ -322,7 +342,7 @@ const AdminPanel = () => {
             </div>
             <div className="flex items-center space-x-4">
               <button
-                onClick={syncWithSupabase}
+                onClick={syncWithFirebase}
                 className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
                   syncStatus === 'syncing' 
                     ? 'bg-yellow-100 text-yellow-700' 

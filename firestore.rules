@@ -1,0 +1,74 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Admin users collection - only authenticated users can read
+    // Write access restricted to prevent unauthorized admin creation
+    match /admin_users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    
+    // Custom URLs collection - authenticated users can manage
+    match /custom_urls/{urlId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() 
+                    && request.resource.data.keys().hasAll(['url', 'title', 'created_at', 'updated_at'])
+                    && request.resource.data.url is string
+                    && request.resource.data.title is string;
+      allow update: if isAuthenticated()
+                    && request.resource.data.keys().hasAll(['url', 'title', 'updated_at'])
+                    && request.resource.data.url is string
+                    && request.resource.data.title is string;
+      allow delete: if isAuthenticated();
+    }
+    
+    // Audio mappings collection - authenticated users can manage
+    match /audio_mappings/{mappingId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+                    && request.resource.data.keys().hasAll(['surah_number', 'ayah_number', 'custom_url_id', 'created_at', 'updated_at'])
+                    && request.resource.data.surah_number is int
+                    && request.resource.data.ayah_number is int
+                    && request.resource.data.surah_number >= 1
+                    && request.resource.data.surah_number <= 114
+                    && request.resource.data.ayah_number >= 1;
+      allow update: if isAuthenticated()
+                    && request.resource.data.keys().hasAll(['surah_number', 'ayah_number', 'custom_url_id', 'updated_at'])
+                    && request.resource.data.surah_number is int
+                    && request.resource.data.ayah_number is int
+                    && request.resource.data.surah_number >= 1
+                    && request.resource.data.surah_number <= 114
+                    && request.resource.data.ayah_number >= 1;
+      allow delete: if isAuthenticated();
+    }
+    
+    // Tafseer entries collection - authenticated users can manage
+    match /tafseer_entries/{entryId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+                    && request.resource.data.keys().hasAll(['surah_number', 'ayah_number', 'tafseer_text', 'created_at', 'updated_at'])
+                    && request.resource.data.surah_number is int
+                    && request.resource.data.ayah_number is int
+                    && request.resource.data.tafseer_text is string
+                    && request.resource.data.surah_number >= 1
+                    && request.resource.data.surah_number <= 114
+                    && request.resource.data.ayah_number >= 1;
+      allow update: if isAuthenticated()
+                    && request.resource.data.keys().hasAll(['surah_number', 'ayah_number', 'tafseer_text', 'updated_at'])
+                    && request.resource.data.surah_number is int
+                    && request.resource.data.ayah_number is int
+                    && request.resource.data.tafseer_text is string
+                    && request.resource.data.surah_number >= 1
+                    && request.resource.data.surah_number <= 114
+                    && request.resource.data.ayah_number >= 1;
+      allow delete: if isAuthenticated();
+    }
+  }
+}

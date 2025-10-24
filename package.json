@@ -6,34 +6,45 @@
   "scripts": {
     "dev": "vite",
     "build": "npm run lint && vite build",
+    "build:validate": "npm run validate:env && npm run lint && vite build",
+    "build:prod": "npm run validate:env && npm run lint && vite build --mode production",
+    "validate:env": "node scripts/validate-env.js",
+    "test:build": "node scripts/test-production-build.js",
     "lint": "eslint .",
-    "lint:error": "eslint . --quiet", 
-    "preview": "vite preview"
+    "lint:error": "eslint . --quiet",
+    "preview": "vite preview",
+    "test": "vitest --run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@questlabs/react-sdk": "^2.2.4",
-    "@supabase/supabase-js": "^2.39.0",
-    "react": "^18.3.1",
-    "react-router-dom": "^7.1.0",
-    "react-dom": "^18.3.1",
-    "react-icons": "^5.4.0",
-    "framer-motion": "^11.0.8",
+    "axios": "^1.6.0",
+    "date-fns": "4.1.0",
     "echarts": "^5.5.0",
     "echarts-for-react": "^3.0.2",
-    "date-fns": "4.1.0",
-    "axios": "^1.6.0",
-    "react-hot-toast": "^2.4.1"
+    "firebase": "^12.4.0",
+    "framer-motion": "^11.0.8",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-hot-toast": "^2.4.1",
+    "react-icons": "^5.4.0",
+    "react-router-dom": "^7.1.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
     "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.20",
+    "dotenv": "^17.2.3",
     "eslint": "^9.9.1",
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",
     "eslint-plugin-react-refresh": "^0.4.11",
     "globals": "^15.9.0",
-    "autoprefixer": "^10.4.20",
+    "jsdom": "^27.0.1",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
-    "vite": "^5.4.2"
+    "vite": "^5.4.2",
+    "vitest": "^4.0.2"
   }
 }

@@ -1,7 +1,19 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import axios from 'axios';
 import toast from 'react-hot-toast';
-import supabase from '../lib/supabase';
+import { db } from '../lib/firebase';
+import { 
+  collection, 
+  getDocs, 
+  query, 
+  where, 
+  onSnapshot,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
+  serverTimestamp
+} from 'firebase/firestore';
+import { handleFirebaseError, logFirebaseError } from '../utils/firebaseErrorHandler';
 
 const QuranContext = createContext();
 
@@ -24,75 +36,83 @@ export const QuranProvider = ({ children }) => {
   const [currentSurah, setCurrentSurah] = useState(null);
   const audioRef = useRef(null);
 
-  // Load Quran chapters list
+  // Load Quran chapters list from offline data
   useEffect(() => {
-    const fetchSurahs = async () => {
+    const loadSurahs = async () => {
       try {
-        const response = await axios.get('https://api.quran.com/api/v4/chapters');
-        setSurahs(response.data.chapters);
+        console.log('Loading surahs from offline data...');
+        // Import offline surah data
+        const { getAllSurahsInfo } = await import('../data/quran-data.js');
+        const surahsData = getAllSurahsInfo();
+        console.log('Loaded surahs:', surahsData.length);
+        setSurahs(surahsData);
         setLoading(false);
       } catch (error) {
-        console.error('Error fetching surahs:', error);
+        console.error('Error loading offline surahs:', error);
         toast.error('Failed to load Quran chapters');
         setLoading(false);
       }
     };
 
-    fetchSurahs();
+    loadSurahs();
   }, []);
 
-  // Load audio, tafseer mappings and custom URLs from Supabase
+  // Load audio, tafseer mappings and custom URLs from Firestore
   useEffect(() => {
     const fetchMappings = async () => {
       try {
-        // Fetch custom URLs from Supabase
-        const { data: urlsData, error: urlsError } = await supabase
-          .from('custom_urls_qr84fm')
-          .select('*');
+        // Fetch custom URLs from Firestore
+        const customUrlsRef = collection(db, 'custom_urls');
+        const urlsSnapshot = await getDocs(customUrlsRef);
+        const urlsData = urlsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        setCustomUrls(urlsData);
         
-        if (urlsError) throw urlsError;
-        setCustomUrls(urlsData || []);
-        
-        // Fetch audio mappings from Supabase
-        const { data: audioData, error: audioError } = await supabase
-          .from('audio_mappings_qr84fm')
-          .select(`
-            *,
-            custom_url: custom_url_id(id, url, title)
-          `);
-        
-        if (audioError) throw audioError;
+        // Fetch audio mappings from Firestore
+        const audioMappingsRef = collection(db, 'audio_mappings');
+        const audioSnapshot = await getDocs(audioMappingsRef);
         
         // Convert to key-value mapping format
         const audioMap = {};
-        audioData?.forEach(mapping => {
+        for (const doc of audioSnapshot.docs) {
+          const mapping = doc.data();
           const key = `${mapping.surah_number}:${mapping.ayah_number}`;
+          
+          // Fetch related custom URL if exists
+          let customUrl = null;
+          if (mapping.custom_url_id) {
+            const relatedUrl = urlsData.find(url => url.id === mapping.custom_url_id);
+            customUrl = relatedUrl ? relatedUrl.url : null;
+          }
+          
           audioMap[key] = {
             url: mapping.audio_url,
             customUrlId: mapping.custom_url_id,
-            customUrl: mapping.custom_url ? mapping.custom_url.url : null
+            customUrl: customUrl
           };
-        });
+        }
         setAudioMappings(audioMap);
         
-        // Fetch tafseer mappings from Supabase
-        const { data: tafseerData, error: tafseerError } = await supabase
-          .from('tafseer_entries_qr84fm')
-          .select('*');
-        
-        if (tafseerError) throw tafseerError;
+        // Fetch tafseer mappings from Firestore
+        const tafseerEntriesRef = collection(db, 'tafseer_entries');
+        const tafseerSnapshot = await getDocs(tafseerEntriesRef);
         
         // Convert to key-value mapping format
         const tafseerMap = {};
-        tafseerData?.forEach(mapping => {
+        tafseerSnapshot.docs.forEach(doc => {
+          const mapping = doc.data();
           const key = `${mapping.surah_number}:${mapping.ayah_number}`;
           tafseerMap[key] = mapping.tafseer_text;
         });
         setTafseerMappings(tafseerMap);
       } catch (error) {
-        console.error('Error fetching mappings from Supabase:', error);
+        logFirebaseError('Fetch Mappings', error);
+        const errorMessage = handleFirebaseError(error);
+        toast.error(errorMessage);
         
-        // Fallback to localStorage if Supabase fails
+        // Fallback to localStorage if Firestore fails
         const savedAudioMappings = localStorage.getItem('quran_audio_mappings');
         if (savedAudioMappings) {
           setAudioMappings(JSON.parse(savedAudioMappings));
@@ -108,188 +128,254 @@ export const QuranProvider = ({ children }) => {
     fetchMappings();
   }, []);
 
-  // Set up real-time subscription for updates
+  // Set up real-time subscription for updates with Firestore
   useEffect(() => {
-    const audioSubscription = supabase
-      .channel('audio_changes')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'audio_mappings_qr84fm' }, 
-        payload => {
-          if (payload.new) {
-            fetchUpdatedAudioMapping(payload.new.surah_number, payload.new.ayah_number);
-          }
+    // Subscribe to audio mappings changes
+    const audioMappingsRef = collection(db, 'audio_mappings');
+    const unsubscribeAudio = onSnapshot(audioMappingsRef, (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === 'added' || change.type === 'modified') {
+          const data = change.doc.data();
+          fetchUpdatedAudioMapping(data.surah_number, data.ayah_number);
         }
-      )
-      .subscribe();
-      
-    const tafseerSubscription = supabase
-      .channel('tafseer_changes')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'tafseer_entries_qr84fm' }, 
-        payload => {
-          if (payload.new) {
-            const { surah_number, ayah_number, tafseer_text } = payload.new;
-            const key = `${surah_number}:${ayah_number}`;
-            setTafseerMappings(prev => ({ ...prev, [key]: tafseer_text }));
-          }
+      });
+    });
+    
+    // Subscribe to tafseer entries changes
+    const tafseerEntriesRef = collection(db, 'tafseer_entries');
+    const unsubscribeTafseer = onSnapshot(tafseerEntriesRef, (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === 'added' || change.type === 'modified') {
+          const data = change.doc.data();
+          const key = `${data.surah_number}:${data.ayah_number}`;
+          setTafseerMappings(prev => ({ ...prev, [key]: data.tafseer_text }));
         }
-      )
-      .subscribe();
-      
-    const urlsSubscription = supabase
-      .channel('url_changes')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'custom_urls_qr84fm' }, 
-        payload => {
-          if (payload.new) {
-            // Refresh custom URLs list
-            fetchCustomUrls();
-            // Update any audio mappings that might use this URL
-            updateAudioMappingsWithUrl(payload.new.id);
-          }
+      });
+    });
+    
+    // Subscribe to custom URLs changes
+    const customUrlsRef = collection(db, 'custom_urls');
+    const unsubscribeUrls = onSnapshot(customUrlsRef, (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === 'added' || change.type === 'modified') {
+          // Refresh custom URLs list
+          fetchCustomUrls();
+          // Update any audio mappings that might use this URL
+          updateAudioMappingsWithUrl(change.doc.id);
         }
-      )
-      .subscribe();
-      
+      });
+    });
+    
     return () => {
-      supabase.removeChannel(audioSubscription);
-      supabase.removeChannel(tafseerSubscription);
-      supabase.removeChannel(urlsSubscription);
+      unsubscribeAudio();
+      unsubscribeTafseer();
+      unsubscribeUrls();
     };
   }, []);
 
   // Fetch a single updated audio mapping
   const fetchUpdatedAudioMapping = async (surahNumber, ayahNumber) => {
     try {
-      const { data, error } = await supabase
-        .from('audio_mappings_qr84fm')
-        .select(`
-          *,
-          custom_url: custom_url_id(id, url, title)
-        `)
-        .eq('surah_number', surahNumber)
-        .eq('ayah_number', ayahNumber)
-        .single();
-        
-      if (error) throw error;
+      const audioMappingsRef = collection(db, 'audio_mappings');
+      const q = query(
+        audioMappingsRef,
+        where('surah_number', '==', surahNumber),
+        where('ayah_number', '==', ayahNumber)
+      );
+      const querySnapshot = await getDocs(q);
       
-      if (data) {
+      if (!querySnapshot.empty) {
+        const data = querySnapshot.docs[0].data();
+        
+        // Fetch related custom URL if exists
+        let customUrl = null;
+        if (data.custom_url_id) {
+          const customUrlsRef = collection(db, 'custom_urls');
+          const urlsSnapshot = await getDocs(customUrlsRef);
+          const relatedUrl = urlsSnapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .find(url => url.id === data.custom_url_id);
+          customUrl = relatedUrl ? relatedUrl.url : null;
+        }
+        
         const key = `${surahNumber}:${ayahNumber}`;
         setAudioMappings(prev => ({
           ...prev, 
           [key]: {
             url: data.audio_url,
             customUrlId: data.custom_url_id,
-            customUrl: data.custom_url ? data.custom_url.url : null
+            customUrl: customUrl
           }
         }));
       }
     } catch (error) {
-      console.error('Error fetching updated audio mapping:', error);
+      logFirebaseError('Fetch Updated Audio Mapping', error);
     }
   };
 
   // Fetch all custom URLs
   const fetchCustomUrls = async () => {
     try {
-      const { data, error } = await supabase
-        .from('custom_urls_qr84fm')
-        .select('*');
-        
-      if (error) throw error;
+      const customUrlsRef = collection(db, 'custom_urls');
+      const querySnapshot = await getDocs(customUrlsRef);
+      const urlsData = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
       
-      setCustomUrls(data || []);
+      setCustomUrls(urlsData);
     } catch (error) {
-      console.error('Error fetching custom URLs:', error);
+      logFirebaseError('Fetch Custom URLs', error);
     }
   };
 
   // Update audio mappings when a custom URL changes
   const updateAudioMappingsWithUrl = async (urlId) => {
     try {
-      const { data, error } = await supabase
-        .from('audio_mappings_qr84fm')
-        .select(`
-          *,
-          custom_url: custom_url_id(id, url, title)
-        `)
-        .eq('custom_url_id', urlId);
-        
-      if (error) throw error;
+      const audioMappingsRef = collection(db, 'audio_mappings');
+      const q = query(audioMappingsRef, where('custom_url_id', '==', urlId));
+      const querySnapshot = await getDocs(q);
       
-      if (data && data.length > 0) {
+      if (!querySnapshot.empty) {
+        // Fetch the custom URL
+        const customUrlsRef = collection(db, 'custom_urls');
+        const urlsSnapshot = await getDocs(customUrlsRef);
+        const customUrl = urlsSnapshot.docs
+          .map(doc => ({ id: doc.id, ...doc.data() }))
+          .find(url => url.id === urlId);
+        
         const updatedMappings = { ...audioMappings };
         
-        data.forEach(mapping => {
+        querySnapshot.docs.forEach(doc => {
+          const mapping = doc.data();
           const key = `${mapping.surah_number}:${mapping.ayah_number}`;
           updatedMappings[key] = {
             url: mapping.audio_url,
             customUrlId: mapping.custom_url_id,
-            customUrl: mapping.custom_url ? mapping.custom_url.url : null
+            customUrl: customUrl ? customUrl.url : null
           };
         });
         
         setAudioMappings(updatedMappings);
       }
     } catch (error) {
-      console.error('Error updating audio mappings with URL:', error);
+      logFirebaseError('Update Audio Mappings with URL', error);
     }
   };
 
-  // Create or update a custom URL
+  // Create a new custom URL
+  const createCustomUrl = async (url, title = '', description = '') => {
+    try {
+      const customUrlsRef = collection(db, 'custom_urls');
+      const docRef = await addDoc(customUrlsRef, { 
+        url, 
+        title, 
+        description,
+        created_at: serverTimestamp(),
+        updated_at: serverTimestamp()
+      });
+      
+      // Refresh custom URLs list
+      await fetchCustomUrls();
+      
+      toast.success('Custom URL created successfully');
+      return docRef.id;
+    } catch (error) {
+      logFirebaseError('Create Custom URL', error);
+      const errorMessage = handleFirebaseError(error);
+      toast.error(errorMessage);
+      return null;
+    }
+  };
+
+  // Update an existing custom URL by ID
+  const updateCustomUrl = async (urlId, updates) => {
+    try {
+      const docRef = doc(db, 'custom_urls', urlId);
+      await updateDoc(docRef, { 
+        ...updates,
+        updated_at: serverTimestamp()
+      });
+      
+      // Refresh custom URLs list
+      await fetchCustomUrls();
+      
+      toast.success('Custom URL updated successfully');
+      return true;
+    } catch (error) {
+      logFirebaseError('Update Custom URL', error);
+      const errorMessage = handleFirebaseError(error);
+      toast.error(errorMessage);
+      return false;
+    }
+  };
+
+  // Delete a custom URL by ID
+  const deleteCustomUrl = async (urlId) => {
+    try {
+      // Check if this URL is being used by any audio mappings
+      const audioMappingsRef = collection(db, 'audio_mappings');
+      const q = query(audioMappingsRef, where('custom_url_id', '==', urlId));
+      const querySnapshot = await getDocs(q);
+      
+      if (!querySnapshot.empty) {
+        toast.error('Cannot delete URL: it is being used by audio mappings');
+        return false;
+      }
+      
+      const docRef = doc(db, 'custom_urls', urlId);
+      await deleteDoc(docRef);
+      
+      // Refresh custom URLs list
+      await fetchCustomUrls();
+      
+      toast.success('Custom URL deleted successfully');
+      return true;
+    } catch (error) {
+      logFirebaseError('Delete Custom URL', error);
+      const errorMessage = handleFirebaseError(error);
+      toast.error(errorMessage);
+      return false;
+    }
+  };
+
+  // Upsert a custom URL (create if doesn't exist, update if exists)
+  // This checks by URL string to avoid duplicates
   const saveCustomUrl = async (url, title = '', description = '') => {
     try {
       // Check if URL already exists
-      const { data: existingUrl, error: checkError } = await supabase
-        .from('custom_urls_qr84fm')
-        .select('id')
-        .eq('url', url)
-        .maybeSingle();
-        
-      if (checkError) throw checkError;
+      const customUrlsRef = collection(db, 'custom_urls');
+      const q = query(customUrlsRef, where('url', '==', url));
+      const querySnapshot = await getDocs(q);
       
       let urlId;
       
-      if (existingUrl) {
+      if (!querySnapshot.empty) {
         // Update existing URL
-        const { data, error } = await supabase
-          .from('custom_urls_qr84fm')
-          .update({ 
-            title, 
-            description,
-            updated_at: new Date()
-          })
-          .eq('id', existingUrl.id)
-          .select('id')
-          .single();
-          
-        if (error) throw error;
-        urlId = data.id;
+        const existingDoc = querySnapshot.docs[0];
+        urlId = existingDoc.id;
+        await updateCustomUrl(urlId, { title, description });
       } else {
         // Create new URL
-        const { data, error } = await supabase
-          .from('custom_urls_qr84fm')
-          .insert({ 
-            url, 
-            title, 
-            description,
-            created_at: new Date(),
-            updated_at: new Date()
-          })
-          .select('id')
-          .single();
-          
-        if (error) throw error;
-        urlId = data.id;
+        urlId = await createCustomUrl(url, title, description);
       }
-      
-      // Refresh custom URLs list
-      fetchCustomUrls();
       
       return urlId;
     } catch (error) {
-      console.error('Error saving custom URL:', error);
-      toast.error('Failed to save custom URL');
+      logFirebaseError('Save Custom URL', error);
+      const errorMessage = handleFirebaseError(error);
+      toast.error(errorMessage);
+      return null;
+    }
+  };
+
+  // Get a custom URL by ID
+  const getCustomUrlById = (urlId) => {
+    try {
+      const customUrl = customUrls.find(url => url.id === urlId);
+      return customUrl || null;
+    } catch (error) {
+      console.error('Error getting custom URL:', error);
       return null;
     }
   };
@@ -305,20 +391,35 @@ export const QuranProvider = ({ children }) => {
         customUrlId = await saveCustomUrl(audioUrl, customUrlTitle || `Audio for ${surahNumber}:${ayahNumber}`);
       }
       
-      // Save to Supabase
-      const { error } = await supabase
-        .from('audio_mappings_qr84fm')
-        .upsert({ 
+      // Check if audio mapping already exists
+      const audioMappingsRef = collection(db, 'audio_mappings');
+      const q = query(
+        audioMappingsRef,
+        where('surah_number', '==', surahNumber),
+        where('ayah_number', '==', ayahNumber)
+      );
+      const querySnapshot = await getDocs(q);
+      
+      if (!querySnapshot.empty) {
+        // Update existing mapping
+        const existingDoc = querySnapshot.docs[0];
+        const docRef = doc(db, 'audio_mappings', existingDoc.id);
+        await updateDoc(docRef, { 
+          audio_url: audioUrl,
+          custom_url_id: customUrlId,
+          updated_at: serverTimestamp()
+        });
+      } else {
+        // Create new mapping
+        await addDoc(audioMappingsRef, { 
           surah_number: surahNumber, 
           ayah_number: ayahNumber, 
           audio_url: audioUrl,
           custom_url_id: customUrlId,
-          updated_at: new Date()
-        }, { 
-          onConflict: 'surah_number,ayah_number' 
+          created_at: serverTimestamp(),
+          updated_at: serverTimestamp()
         });
-      
-      if (error) throw error;
+      }
       
       // Update local state
       const newMappings = { 
@@ -337,9 +438,10 @@ export const QuranProvider = ({ children }) => {
       toast.success('Audio mapping saved successfully');
       return true;
     } catch (error) {
-      console.error('Error saving audio mapping:', error);
+      logFirebaseError('Save Audio Mapping', error);
+      const errorMessage = handleFirebaseError(error);
       
-      // Fallback to localStorage only if Supabase fails
+      // Fallback to localStorage only if Firestore fails
       const newMappings = { 
         ...audioMappings, 
         [key]: {
@@ -350,7 +452,43 @@ export const QuranProvider = ({ children }) => {
       setAudioMappings(newMappings);
       localStorage.setItem('quran_audio_mappings', JSON.stringify(newMappings));
       
-      toast.success('Audio mapping saved locally');
+      toast.error(`${errorMessage} - Saved locally instead.`);
+      return false;
+    }
+  };
+
+  // Delete an audio mapping
+  const deleteAudioMapping = async (surahNumber, ayahNumber) => {
+    const key = `${surahNumber}:${ayahNumber}`;
+    
+    try {
+      const audioMappingsRef = collection(db, 'audio_mappings');
+      const q = query(
+        audioMappingsRef,
+        where('surah_number', '==', surahNumber),
+        where('ayah_number', '==', ayahNumber)
+      );
+      const querySnapshot = await getDocs(q);
+      
+      if (!querySnapshot.empty) {
+        const docRef = doc(db, 'audio_mappings', querySnapshot.docs[0].id);
+        await deleteDoc(docRef);
+        
+        // Update local state
+        const newMappings = { ...audioMappings };
+        delete newMappings[key];
+        setAudioMappings(newMappings);
+        
+        // Update localStorage
+        localStorage.setItem('quran_audio_mappings', JSON.stringify(newMappings));
+        
+        toast.success('Audio mapping deleted successfully');
+        return true;
+      }
+    } catch (error) {
+      logFirebaseError('Delete Audio Mapping', error);
+      const errorMessage = handleFirebaseError(error);
+      toast.error(errorMessage);
       return false;
     }
   };
@@ -359,19 +497,33 @@ export const QuranProvider = ({ children }) => {
     const key = `${surahNumber}:${ayahNumber}`;
     
     try {
-      // Save to Supabase
-      const { error } = await supabase
-        .from('tafseer_entries_qr84fm')
-        .upsert({ 
+      // Check if tafseer entry already exists
+      const tafseerEntriesRef = collection(db, 'tafseer_entries');
+      const q = query(
+        tafseerEntriesRef,
+        where('surah_number', '==', surahNumber),
+        where('ayah_number', '==', ayahNumber)
+      );
+      const querySnapshot = await getDocs(q);
+      
+      if (!querySnapshot.empty) {
+        // Update existing entry
+        const existingDoc = querySnapshot.docs[0];
+        const docRef = doc(db, 'tafseer_entries', existingDoc.id);
+        await updateDoc(docRef, { 
+          tafseer_text: tafseerText,
+          updated_at: serverTimestamp()
+        });
+      } else {
+        // Create new entry
+        await addDoc(tafseerEntriesRef, { 
           surah_number: surahNumber, 
           ayah_number: ayahNumber, 
           tafseer_text: tafseerText,
-          updated_at: new Date()
-        }, { 
-          onConflict: 'surah_number,ayah_number' 
+          created_at: serverTimestamp(),
+          updated_at: serverTimestamp()
         });
-      
-      if (error) throw error;
+      }
       
       // Update local state
       const newMappings = { ...tafseerMappings, [key]: tafseerText };
@@ -382,14 +534,51 @@ export const QuranProvider = ({ children }) => {
       
       toast.success('Tafseer saved successfully');
     } catch (error) {
-      console.error('Error saving tafseer:', error);
+      logFirebaseError('Save Tafseer', error);
+      const errorMessage = handleFirebaseError(error);
       
-      // Fallback to localStorage only if Supabase fails
+      // Fallback to localStorage only if Firestore fails
       const newMappings = { ...tafseerMappings, [key]: tafseerText };
       setTafseerMappings(newMappings);
       localStorage.setItem('quran_tafseer_mappings', JSON.stringify(newMappings));
       
-      toast.success('Tafseer saved locally');
+      toast.error(`${errorMessage} - Saved locally instead.`);
+    }
+  };
+
+  // Delete a tafseer entry
+  const deleteTafseerMapping = async (surahNumber, ayahNumber) => {
+    const key = `${surahNumber}:${ayahNumber}`;
+    
+    try {
+      const tafseerEntriesRef = collection(db, 'tafseer_entries');
+      const q = query(
+        tafseerEntriesRef,
+        where('surah_number', '==', surahNumber),
+        where('ayah_number', '==', ayahNumber)
+      );
+      const querySnapshot = await getDocs(q);
+      
+      if (!querySnapshot.empty) {
+        const docRef = doc(db, 'tafseer_entries', querySnapshot.docs[0].id);
+        await deleteDoc(docRef);
+        
+        // Update local state
+        const newMappings = { ...tafseerMappings };
+        delete newMappings[key];
+        setTafseerMappings(newMappings);
+        
+        // Update localStorage
+        localStorage.setItem('quran_tafseer_mappings', JSON.stringify(newMappings));
+        
+        toast.success('Tafseer deleted successfully');
+        return true;
+      }
+    } catch (error) {
+      logFirebaseError('Delete Tafseer', error);
+      const errorMessage = handleFirebaseError(error);
+      toast.error(errorMessage);
+      return false;
     }
   };
 
@@ -480,10 +669,14 @@ export const QuranProvider = ({ children }) => {
 
   const fetchSurahVerses = async (surahNumber) => {
     try {
-      const response = await axios.get(`https://api.quran.com/api/v4/verses/by_chapter/${surahNumber}?translations=131&fields=verse_key,text_uthmani,translations`);
-      return response.data.verses;
+      console.log('Loading verses for surah:', surahNumber);
+      // Import offline verse data
+      const { getSurahVerses } = await import('../data/quran-data.js');
+      const verses = await getSurahVerses(surahNumber);
+      console.log('Loaded verses:', verses.length);
+      return verses;
     } catch (error) {
-      console.error('Error fetching verses:', error);
+      console.error('Error loading offline verses:', error);
       toast.error('Failed to load verses');
       return [];
     }
@@ -500,8 +693,14 @@ export const QuranProvider = ({ children }) => {
     currentSurah,
     setCurrentSurah,
     saveAudioMapping,
+    deleteAudioMapping,
     saveTafseerMapping,
+    deleteTafseerMapping,
+    createCustomUrl,
+    updateCustomUrl,
+    deleteCustomUrl,
     saveCustomUrl,
+    getCustomUrlById,
     getAudioUrl,
     getTafseer,
     playAudio,

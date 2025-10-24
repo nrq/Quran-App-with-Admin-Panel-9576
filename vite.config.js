@@ -10,8 +10,19 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src')
     }
   },
-   build: {
+  build: {
     outDir: 'dist',
-    sourcemap: true
+    sourcemap: true,
+    // Ensure environment variables are properly embedded
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Separate Firebase into its own chunk for better caching
+          firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore']
+        }
+      }
+    }
   },
+  // Define environment variable prefix
+  envPrefix: 'VITE_',
 });

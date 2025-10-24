@@ -1,0 +1,84 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "audio_mappings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "surah_number",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "ayah_number",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "tafseer_entries",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "surah_number",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "ayah_number",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "custom_urls",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "created_at",
+          "order": "DESCENDING"
+        }
+      ]
+    }
+  ],
+  "fieldOverrides": [
+    {
+      "collectionGroup": "audio_mappings",
+      "fieldPath": "custom_url_id",
+      "indexes": [
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "audio_mappings",
+      "fieldPath": "surah_number",
+      "indexes": [
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "tafseer_entries",
+      "fieldPath": "surah_number",
+      "indexes": [
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "custom_urls",
+      "fieldPath": "url",
+      "indexes": [
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION"
+        }
+      ]
+    }
+  ]
+}

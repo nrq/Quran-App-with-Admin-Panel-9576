@@ -1,6 +1,9 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import supabase from '../lib/supabase';
+import { createContext, useContext, useState, useEffect } from 'react';
+import { signInWithEmailAndPassword, signOut, onAuthStateChanged, createUserWithEmailAndPassword } from 'firebase/auth';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { auth, db } from '../lib/firebase';
 import toast from 'react-hot-toast';
+import { handleFirebaseError, logFirebaseError } from '../utils/firebaseErrorHandler';
 
 const AuthContext = createContext();
 
@@ -19,118 +22,86 @@ export const AuthProvider = ({ children }) => {
 
   // Check for existing session on load
   useEffect(() => {
-    const checkSession = async () => {
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          console.error('Error checking auth session:', error);
-        }
-        
-        if (session) {
-          setIsAuthenticated(true);
-          setUser(session.user);
-        }
-      } catch (error) {
-        console.error('Error checking auth status:', error);
-      } finally {
-        setLoading(false);
+    // Set up Firebase auth state change listener
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) {
+        setIsAuthenticated(true);
+        setUser(firebaseUser);
+      } else {
+        setIsAuthenticated(false);
+        setUser(null);
       }
-    };
-
-    checkSession();
-
-    // Set up auth state change listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (event === 'SIGNED_IN' && session) {
-          setIsAuthenticated(true);
-          setUser(session.user);
-        } else if (event === 'SIGNED_OUT') {
-          setIsAuthenticated(false);
-          setUser(null);
-        }
-      }
-    );
+      setLoading(false);
+    });
 
     return () => {
-      if (subscription) {
-        subscription.unsubscribe();
-      }
+      unsubscribe();
     };
   }, []);
 
   const login = async (username, password) => {
     try {
-      // First, check if the user exists in our admin_users table
-      const { data: adminData, error: adminError } = await supabase
-        .from('admin_users_qr84fm')
-        .select('*')
-        .eq('username', username)
-        .eq('password_hash', password)
-        .single();
-        
-      if (adminError || !adminData) {
+      // First, check if the user exists in our admin_users collection
+      const adminUsersRef = collection(db, 'admin_users');
+      const q = query(
+        adminUsersRef,
+        where('username', '==', username),
+        where('password_hash', '==', password)
+      );
+      
+      const querySnapshot = await getDocs(q);
+      
+      if (querySnapshot.empty) {
         toast.error('Invalid credentials');
         return false;
       }
       
-      // If admin exists in our table, create an auth session
-      const { error } = await supabase.auth.signInWithPassword({
-        email: `${username}@quran-app.com`, // Create a pseudo email for auth
-        password: password,
-      });
+      // If admin exists in our collection, create a Firebase auth session
+      const email = `${username}@quran-app.com`; // Create a pseudo email for auth
       
-      if (error) {
-        // If user doesn't exist in auth, sign them up first
-        if (error.message.includes("Invalid login credentials")) {
-          const { error: signupError } = await supabase.auth.signUp({
-            email: `${username}@quran-app.com`,
-            password: password,
-          });
-          
-          if (signupError) {
-            console.error('Error signing up:', signupError);
-            toast.error('Authentication failed');
-            return false;
-          }
-          
-          // Try logging in again after signup
-          const { error: loginError } = await supabase.auth.signInWithPassword({
-            email: `${username}@quran-app.com`,
-            password: password,
-          });
-          
-          if (loginError) {
-            console.error('Error logging in after signup:', loginError);
-            toast.error('Authentication failed');
+      try {
+        // Try to sign in with Firebase Authentication
+        await signInWithEmailAndPassword(auth, email, password);
+        toast.success('Login successful!');
+        return true;
+      } catch (error) {
+        // If user doesn't exist in Firebase Auth, create the account first
+        if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+          try {
+            await createUserWithEmailAndPassword(auth, email, password);
+            toast.success('Login successful!');
+            return true;
+          } catch (signupError) {
+            logFirebaseError('Create Auth User', signupError);
+            const errorMessage = handleFirebaseError(signupError);
+            toast.error(errorMessage);
             return false;
           }
         } else {
-          console.error('Error logging in:', error);
-          toast.error('Authentication failed');
+          logFirebaseError('Login', error);
+          const errorMessage = handleFirebaseError(error);
+          toast.error(errorMessage);
           return false;
         }
       }
-      
-      toast.success('Login successful!');
-      return true;
     } catch (error) {
-      console.error('Login error:', error);
-      toast.error('Authentication failed');
+      logFirebaseError('Admin User Validation', error);
+      const errorMessage = handleFirebaseError(error);
+      toast.error(errorMessage);
       return false;
     }
   };
 
   const logout = async () => {
     try {
-      await supabase.auth.signOut();
+      await signOut(auth);
       setIsAuthenticated(false);
       setUser(null);
       toast.success('Logged out successfully');
     } catch (error) {
-      console.error('Logout error:', error);
-      toast.error('Failed to log out');
+      logFirebaseError('Logout', error);
+      const errorMessage = handleFirebaseError(error);
+      toast.error(errorMessage);
     }
   };
 

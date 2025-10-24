@@ -675,38 +675,38 @@ export const QuranProvider = ({ children }) => {
     }
   };
 
-  // Auto-save position when playingAyah or isPaused changes (with debouncing)
-  useEffect(() => {
-    if (playingAyah) {
-      // Clear any existing timeout
-      if (savePositionTimeoutRef.current) {
-        clearTimeout(savePositionTimeoutRef.current);
-      }
+  // DISABLED: Auto-save scroll position was causing scroll jumping issues
+  // useEffect(() => {
+  //   if (playingAyah) {
+  //     // Clear any existing timeout
+  //     if (savePositionTimeoutRef.current) {
+  //       clearTimeout(savePositionTimeoutRef.current);
+  //     }
 
-      // Set a new timeout to save after 500ms
-      savePositionTimeoutRef.current = setTimeout(() => {
-        try {
-          // Extract surah and ayah numbers from playingAyah string
-          const [surahNumber, ayahNumber] = playingAyah.split(':').map(Number);
+  //     // Set a new timeout to save after 500ms
+  //     savePositionTimeoutRef.current = setTimeout(() => {
+  //       try {
+  //         // Extract surah and ayah numbers from playingAyah string
+  //         const [surahNumber, ayahNumber] = playingAyah.split(':').map(Number);
           
-          // Capture current scroll position
-          const scrollPosition = window.scrollY;
+  //         // Capture current scroll position
+  //         const scrollPosition = window.scrollY;
           
-          // Save position
-          saveReadingPosition(surahNumber, ayahNumber, scrollPosition, isPaused);
-        } catch (error) {
-          console.error('Error auto-saving position:', error);
-        }
-      }, 500);
-    }
+  //         // Save position
+  //         saveReadingPosition(surahNumber, ayahNumber, scrollPosition, isPaused);
+  //       } catch (error) {
+  //         console.error('Error auto-saving position:', error);
+  //       }
+  //     }, 500);
+  //   }
 
-    // Cleanup timeout on unmount
-    return () => {
-      if (savePositionTimeoutRef.current) {
-        clearTimeout(savePositionTimeoutRef.current);
-      }
-    };
-  }, [playingAyah, isPaused]);
+  //   // Cleanup timeout on unmount
+  //   return () => {
+  //     if (savePositionTimeoutRef.current) {
+  //       clearTimeout(savePositionTimeoutRef.current);
+  //     }
+  //   };
+  // }, [playingAyah, isPaused]);
 
   // Restore position on mount
   useEffect(() => {
@@ -720,13 +720,13 @@ export const QuranProvider = ({ children }) => {
         if (position.surahNumber && position.ayahNumber) {
           setLastPlayedPosition(position);
           
-          // Optionally restore scroll position after a short delay
-          // to ensure the page has rendered
-          if (position.scrollPosition !== undefined) {
-            setTimeout(() => {
-              window.scrollTo(0, position.scrollPosition);
-            }, 100);
-          }
+          // DISABLED: Automatic scroll restoration was causing scroll jumping
+          // Only restore scroll on initial page load, not on every audio state change
+          // if (position.scrollPosition !== undefined) {
+          //   setTimeout(() => {
+          //     window.scrollTo(0, position.scrollPosition);
+          //   }, 100);
+          // }
 
           // Show toast notification with surah name and ayah number
           // Wait for surahs to be loaded before showing notification

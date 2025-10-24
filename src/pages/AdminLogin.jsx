@@ -103,8 +103,8 @@ const AdminLogin = () => {
         <div className="mt-6 p-4 bg-islamic-50 rounded-lg">
           <p className="text-sm text-islamic-600 text-center">
             <strong>Admin Credentials:</strong><br />
-            Email: admin@nrq.no<br />
-            Password: admin123
+            <br />
+            
           </p>
         </div>
       </motion.div>

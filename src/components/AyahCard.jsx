@@ -52,9 +52,33 @@ const AyahCard = ({ verse, surahNumber, index }) => {
   }, []);
 
   const handlePlayAudio = () => {
-    // DEBUG: Track scroll position before audio action
+    // CAPTURE scroll position BEFORE any state changes
     const scrollBefore = window.scrollY;
     console.log(`🎵 [AyahCard] Play button clicked - Scroll before: ${scrollBefore}`);
+    
+    // Create scroll restoration function
+    const restoreScroll = () => {
+      window.scrollTo({
+        top: scrollBefore,
+        left: 0,
+        behavior: 'instant'
+      });
+      console.log(`🔄 [Scroll] Restored to position: ${scrollBefore}`);
+    };
+    
+    // Set up multiple restoration attempts to catch React re-renders
+    const scheduleScrollRestore = () => {
+      // Immediate restore
+      restoreScroll();
+      
+      // Restore after React state updates
+      requestAnimationFrame(restoreScroll);
+      setTimeout(restoreScroll, 0);
+      setTimeout(restoreScroll, 10);
+      setTimeout(restoreScroll, 50);
+      setTimeout(restoreScroll, 100);
+      setTimeout(restoreScroll, 200);
+    };
     
     // Simple approach - just call the audio functions
     setIsAudioLoaded(false);
@@ -63,21 +87,24 @@ const AyahCard = ({ verse, surahNumber, index }) => {
       // Currently playing and not paused -> pause it
       console.log(`🎵 [AyahCard] Pausing audio for ${ayahKey}`);
       pauseAudio();
+      scheduleScrollRestore();
     } else if (isPlaying && isPaused) {
       // Currently playing but paused -> resume it
       console.log(`🎵 [AyahCard] Resuming audio for ${ayahKey}`);
       resumeAudio();
+      scheduleScrollRestore();
     } else {
       // Not playing -> play it
       console.log(`🎵 [AyahCard] Starting audio for ${ayahKey}`);
       playAudio(surahNumber, verse.verse_number);
+      scheduleScrollRestore();
     }
     
     // DEBUG: Track scroll position after audio action
     setTimeout(() => {
       const scrollAfter = window.scrollY;
-      console.log(`🎵 [AyahCard] Scroll after audio action: ${scrollAfter} (diff: ${scrollAfter - scrollBefore})`);
-    }, 100);
+      console.log(`🎵 [AyahCard] Final scroll position: ${scrollAfter} (diff: ${scrollAfter - scrollBefore})`);
+    }, 300);
   };
 
   // Reset audio loaded state when playingAyah changes

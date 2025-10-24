@@ -6,17 +6,29 @@ import SafeIcon from '../common/SafeIcon';
 import AyahCard from '../components/AyahCard';
 import { useQuran } from '../contexts/QuranContext';
 
-const { FiArrowLeft, FiBook, FiMapPin } = FiIcons;
+const { FiArrowLeft, FiBook, FiMapPin, FiPlay, FiPause } = FiIcons;
 
 const Surah = () => {
   const { surahNumber } = useParams();
-  const { surahs, fetchSurahVerses, setCurrentSurah } = useQuran(); // REMOVED playingAyah, isPaused
+  const { surahs, fetchSurahVerses, setCurrentSurah, playingAyah, isPaused } = useQuran();
   const [verses, setVerses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [surah, setSurah] = useState(null);
 
   // DEBUG: Track component re-renders
   console.log(`🔄 [Surah] Component re-rendered - verses: ${verses.length}`);
+
+  // Get currently playing verse details
+  const getCurrentlyPlayingVerse = () => {
+    if (!playingAyah || !verses.length) return null;
+    
+    const [playingSurah, playingAyahNumber] = playingAyah.split(':').map(Number);
+    if (playingSurah !== parseInt(surahNumber)) return null;
+    
+    return verses.find(verse => verse.verse_number === playingAyahNumber);
+  };
+
+  const currentlyPlayingVerse = getCurrentlyPlayingVerse();
 
   // DEBUG: Track page navigation/reload
   useEffect(() => {
@@ -89,11 +101,58 @@ const Surah = () => {
 
   return (
     <div className="space-y-8">
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-white rounded-xl p-6 shadow-lg"
-      >
+      {/* Sticky Now Playing Header */}
+      {currentlyPlayingVerse && (
+        <motion.div 
+          initial={{ opacity: 0, y: -100 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -100 }}
+          className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-islamic-gold to-yellow-600 text-white shadow-lg border-b-2 border-yellow-700"
+        >
+          <div className="max-w-6xl mx-auto px-4 py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-2">
+                  <div className="w-8 h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                    <SafeIcon 
+                      icon={isPaused ? FiPlay : FiPause} 
+                      className="text-sm animate-pulse" 
+                    />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-sm">
+                      Now Playing
+                    </div>
+                    <div className="text-xs opacity-90">
+                      {surah?.name_simple} - Ayah {currentlyPlayingVerse.verse_number}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="text-right flex-1 ml-4">
+                <div className="quran-text-pak text-lg leading-relaxed">
+                  {currentlyPlayingVerse.text_uthmani?.substring(0, 60)}
+                  {currentlyPlayingVerse.text_uthmani?.length > 60 ? '...' : ''}
+                </div>
+                {currentlyPlayingVerse.translations?.[0] && (
+                  <div className="mt-1 text-xs opacity-80 max-w-md ml-auto">
+                    {currentlyPlayingVerse.translations[0].text.substring(0, 80)}
+                    {currentlyPlayingVerse.translations[0].text.length > 80 ? '...' : ''}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Add top padding when sticky header is visible */}
+      <div className={currentlyPlayingVerse ? 'pt-24' : ''}>
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white rounded-xl p-6 shadow-lg"
+        >
         <Link
           to="/"
           className="inline-flex items-center space-x-2 text-islamic-600 hover:text-islamic-800 mb-6 transition-colors"
@@ -141,15 +200,16 @@ const Surah = () => {
         </motion.div>
       )}
 
-      <div className="space-y-6" id="verses-container">
-        {verses.map((verse, index) => (
-          <AyahCard 
-            key={verse.verse_key} 
-            verse={verse} 
-            surahNumber={parseInt(surahNumber)} 
-            index={0} // Remove staggered animation to improve performance
-          />
-        ))}
+        <div className="space-y-6" id="verses-container">
+          {verses.map((verse, index) => (
+            <AyahCard 
+              key={verse.verse_key} 
+              verse={verse} 
+              surahNumber={parseInt(surahNumber)} 
+              index={0} // Remove staggered animation to improve performance
+            />
+          ))}
+        </div>
       </div>
     </div>
   );

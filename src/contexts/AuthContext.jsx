@@ -1,7 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { signInWithEmailAndPassword, signOut, onAuthStateChanged, createUserWithEmailAndPassword } from 'firebase/auth';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { auth, db } from '../lib/firebase';
+import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
+import { auth } from '../lib/firebase';
 import toast from 'react-hot-toast';
 import { handleFirebaseError, logFirebaseError } from '../utils/firebaseErrorHandler';
 
@@ -39,53 +38,13 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
-  const login = async (username, password) => {
+  const login = async (email, password) => {
     try {
-      // First, check if the user exists in our admin_users collection
-      const adminUsersRef = collection(db, 'admin_users');
-      const q = query(
-        adminUsersRef,
-        where('username', '==', username),
-        where('password_hash', '==', password)
-      );
-      
-      const querySnapshot = await getDocs(q);
-      
-      if (querySnapshot.empty) {
-        toast.error('Invalid credentials');
-        return false;
-      }
-      
-      // If admin exists in our collection, create a Firebase auth session
-      const email = `${username}@quran-app.com`; // Create a pseudo email for auth
-      
-      try {
-        // Try to sign in with Firebase Authentication
-        await signInWithEmailAndPassword(auth, email, password);
-        toast.success('Login successful!');
-        return true;
-      } catch (error) {
-        // If user doesn't exist in Firebase Auth, create the account first
-        if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
-          try {
-            await createUserWithEmailAndPassword(auth, email, password);
-            toast.success('Login successful!');
-            return true;
-          } catch (signupError) {
-            logFirebaseError('Create Auth User', signupError);
-            const errorMessage = handleFirebaseError(signupError);
-            toast.error(errorMessage);
-            return false;
-          }
-        } else {
-          logFirebaseError('Login', error);
-          const errorMessage = handleFirebaseError(error);
-          toast.error(errorMessage);
-          return false;
-        }
-      }
+      await signInWithEmailAndPassword(auth, email, password);
+      toast.success('Login successful!');
+      return true;
     } catch (error) {
-      logFirebaseError('Admin User Validation', error);
+      logFirebaseError('Login', error);
       const errorMessage = handleFirebaseError(error);
       toast.error(errorMessage);
       return false;

@@ -8,10 +8,10 @@ service cloud.firestore {
       return request.auth != null;
     }
     
-    // Admin users collection - only authenticated users can read
+    // Admin users collection - allow read for login verification
     // Write access restricted to prevent unauthorized admin creation
     match /admin_users/{userId} {
-      allow read: if isAuthenticated();
+      allow read: if true; // Allow unauthenticated read for login verification
       allow write: if isAuthenticated();
     }
     

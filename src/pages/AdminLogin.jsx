@@ -53,7 +53,7 @@ const AdminLogin = () => {
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label className="block text-sm font-medium text-islamic-700 mb-2">
-              Username
+              Email
             </label>
             <div className="relative">
               <SafeIcon
@@ -61,11 +61,11 @@ const AdminLogin = () => {
                 className="absolute left-3 top-1/2 transform -translate-y-1/2 text-islamic-400"
               />
               <input
-                type="text"
+                type="email"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 border border-islamic-200 rounded-lg focus:ring-2 focus:ring-islamic-gold focus:border-transparent outline-none transition-all"
-                placeholder="Enter username"
+                placeholder="Enter email"
                 required
               />
             </div>
@@ -102,8 +102,8 @@ const AdminLogin = () => {
 
         <div className="mt-6 p-4 bg-islamic-50 rounded-lg">
           <p className="text-sm text-islamic-600 text-center">
-            <strong>Demo Credentials:</strong><br />
-            Username: admin<br />
+            <strong>Admin Credentials:</strong><br />
+            Email: admin@nrq.no<br />
             Password: admin123
           </p>
         </div>

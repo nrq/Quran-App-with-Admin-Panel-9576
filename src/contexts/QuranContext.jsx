@@ -757,17 +757,38 @@ export const QuranProvider = ({ children }) => {
   }, []); // Empty dependency array - run once on mount
 
   const pauseAudio = () => {
+    // Capture scroll position before pausing
+    const scrollPosition = window.scrollY;
+    
     if (audioRef.current && playingAyah && !isPaused) {
-      audioRef.current.pause();
-      setIsPaused(true);
+      try {
+        audioRef.current.pause();
+        setIsPaused(true);
+        
+        // Restore scroll position after state update
+        requestAnimationFrame(() => {
+          window.scrollTo({ top: scrollPosition, left: 0, behavior: 'instant' });
+        });
+      } catch (error) {
+        console.error('Error pausing audio:', error);
+        toast.error('Failed to pause audio');
+      }
     }
   };
 
   const resumeAudio = () => {
+    // Capture scroll position before resuming
+    const scrollPosition = window.scrollY;
+    
     if (audioRef.current && playingAyah && isPaused) {
       audioRef.current.play()
         .then(() => {
           setIsPaused(false);
+          
+          // Restore scroll position after state update
+          requestAnimationFrame(() => {
+            window.scrollTo({ top: scrollPosition, left: 0, behavior: 'instant' });
+          });
         })
         .catch((error) => {
           console.error('Error resuming audio:', error);
@@ -777,6 +798,9 @@ export const QuranProvider = ({ children }) => {
   };
 
   const playAudio = (surahNumber, ayahNumber, autoPlayNext = true) => {
+    // Capture scroll position to prevent any jumps
+    const scrollPosition = window.scrollY;
+    
     // If same ayah is playing, check pause state
     const ayahKey = `${surahNumber}:${ayahNumber}`;
     if (audioRef.current && playingAyah === ayahKey) {
@@ -787,20 +811,29 @@ export const QuranProvider = ({ children }) => {
         // Pause the currently playing audio
         pauseAudio();
       }
+      // Restore scroll position
+      window.scrollTo({ top: scrollPosition, left: 0, behavior: 'instant' });
       return;
     }
 
-    // If there's already audio playing, stop it
+    // If there's already audio playing, stop it cleanly
     if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
+      try {
+        audioRef.current.pause();
+        audioRef.current.src = ''; // Clear source to free memory
+        audioRef.current = null;
+      } catch (error) {
+        console.error('Error stopping previous audio:', error);
+      }
     }
     
     // Get the audio URL
     const audioUrl = getAudioUrl(surahNumber, ayahNumber);
     
-    // Create a new audio element
-    const audio = new Audio(audioUrl);
+    // Create a new audio element with better configuration
+    const audio = new Audio();
+    audio.preload = 'auto';
+    audio.src = audioUrl;
     
     // Set the audio reference
     audioRef.current = audio;
@@ -808,24 +841,35 @@ export const QuranProvider = ({ children }) => {
     // Show loading toast
     const loadingToastId = toast.loading('Loading audio...');
     
-    // Add event listeners
-    audio.addEventListener('canplay', () => {
-      toast.dismiss(loadingToastId);
-      audio.play()
-        .then(() => {
-          setPlayingAyah(ayahKey);
-          setCurrentAudio(audio);
-        })
-        .catch((error) => {
-          console.error('Error playing audio:', error);
-          toast.error('Failed to play audio');
-          setPlayingAyah(null);
-        });
-    });
+    // Track if audio has started playing
+    let hasStartedPlaying = false;
     
-    audio.addEventListener('ended', () => {
+    // Add event listeners with better error handling
+    const handleCanPlay = () => {
+      if (!hasStartedPlaying) {
+        toast.dismiss(loadingToastId);
+        audio.play()
+          .then(() => {
+            hasStartedPlaying = true;
+            setPlayingAyah(ayahKey);
+            setCurrentAudio(audio);
+            setIsPaused(false);
+            // Restore scroll position after state update
+            window.scrollTo({ top: scrollPosition, left: 0, behavior: 'instant' });
+          })
+          .catch((error) => {
+            console.error('Error playing audio:', error);
+            toast.error('Failed to play audio. Please try again.');
+            setPlayingAyah(null);
+            setIsPaused(false);
+          });
+      }
+    };
+    
+    const handleEnded = () => {
       setPlayingAyah(null);
       setCurrentAudio(null);
+      setIsPaused(false);
       
       // Auto-play next ayah if enabled
       if (autoPlayNext) {
@@ -837,17 +881,41 @@ export const QuranProvider = ({ children }) => {
           }, 500);
         }
       }
-    });
+    };
     
-    audio.addEventListener('error', (e) => {
+    const handleError = (e) => {
       console.error('Audio error:', e);
       toast.dismiss(loadingToastId);
-      toast.error('Failed to load audio. Please try another ayah.');
+      
+      // Provide more specific error messages
+      const errorMessage = audio.error 
+        ? `Audio error: ${audio.error.message || 'Unknown error'}` 
+        : 'Failed to load audio. Please check your connection.';
+      
+      toast.error(errorMessage);
       setPlayingAyah(null);
-    });
+      setIsPaused(false);
+    };
+    
+    const handleLoadStart = () => {
+      // Restore scroll position when loading starts
+      window.scrollTo({ top: scrollPosition, left: 0, behavior: 'instant' });
+    };
+    
+    audio.addEventListener('canplay', handleCanPlay);
+    audio.addEventListener('ended', handleEnded);
+    audio.addEventListener('error', handleError);
+    audio.addEventListener('loadstart', handleLoadStart);
     
     // Start loading the audio
-    audio.load();
+    try {
+      audio.load();
+    } catch (error) {
+      console.error('Error loading audio:', error);
+      toast.dismiss(loadingToastId);
+      toast.error('Failed to initialize audio player.');
+      setPlayingAyah(null);
+    }
   };
 
   const stopAudio = () => {

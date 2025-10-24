@@ -39,6 +39,7 @@ export const QuranProvider = ({ children }) => {
   const [isPaused, setIsPaused] = useState(false);
   const [lastPlayedPosition, setLastPlayedPosition] = useState(null);
   const audioRef = useRef(null);
+  const savePositionTimeoutRef = useRef(null);
 
   // Load Quran chapters list from offline data
   useEffect(() => {
@@ -61,24 +62,9 @@ export const QuranProvider = ({ children }) => {
     loadSurahs();
   }, []);
 
-  // Load audio, tafseer mappings and custom URLs from Firestore (only when authenticated)
+  // Load audio, tafseer mappings and custom URLs from Firestore
   useEffect(() => {
     const fetchMappings = async () => {
-      // Only fetch from Firestore if user is authenticated
-      if (!isAuthenticated) {
-        // Load from localStorage for unauthenticated users
-        const savedAudioMappings = localStorage.getItem('quran_audio_mappings');
-        if (savedAudioMappings) {
-          setAudioMappings(JSON.parse(savedAudioMappings));
-        }
-        
-        const savedTafseerMappings = localStorage.getItem('quran_tafseer_mappings');
-        if (savedTafseerMappings) {
-          setTafseerMappings(JSON.parse(savedTafseerMappings));
-        }
-        return;
-      }
-
       try {
         // Fetch custom URLs from Firestore
         const customUrlsRef = collection(db, 'custom_urls');
@@ -148,15 +134,10 @@ export const QuranProvider = ({ children }) => {
     };
     
     fetchMappings();
-  }, [isAuthenticated]);
+  }, []);
 
-  // Set up real-time subscription for updates with Firestore (only when authenticated)
+  // Set up real-time subscription for updates with Firestore
   useEffect(() => {
-    // Only set up listeners if user is authenticated
-    if (!isAuthenticated) {
-      return;
-    }
-
     // Subscribe to audio mappings changes
     const audioMappingsRef = collection(db, 'audio_mappings');
     const unsubscribeAudio = onSnapshot(
@@ -225,7 +206,7 @@ export const QuranProvider = ({ children }) => {
       unsubscribeTafseer();
       unsubscribeUrls();
     };
-  }, [isAuthenticated]);
+  }, []);
 
   // Fetch a single updated audio mapping
   const fetchUpdatedAudioMapping = async (surahNumber, ayahNumber) => {
@@ -658,6 +639,122 @@ export const QuranProvider = ({ children }) => {
     const key = `${surahNumber}:${ayahNumber}`;
     return tafseerMappings[key] || '';
   };
+
+  // Save reading position to localStorage
+  const saveReadingPosition = (surahNumber, ayahNumber, scrollPosition, isPausedState) => {
+    try {
+      const position = {
+        surahNumber,
+        ayahNumber,
+        scrollPosition,
+        timestamp: Date.now(),
+        isPaused: isPausedState
+      };
+      localStorage.setItem('quran_reading_position', JSON.stringify(position));
+    } catch (error) {
+      // Handle localStorage errors
+      if (error.name === 'QuotaExceededError') {
+        console.error('localStorage quota exceeded');
+        // Clear old position and try again
+        try {
+          localStorage.removeItem('quran_reading_position');
+          const position = {
+            surahNumber,
+            ayahNumber,
+            scrollPosition,
+            timestamp: Date.now(),
+            isPaused: isPausedState
+          };
+          localStorage.setItem('quran_reading_position', JSON.stringify(position));
+        } catch (retryError) {
+          console.error('Failed to save position after clearing:', retryError);
+        }
+      } else {
+        console.error('Error saving reading position:', error);
+      }
+    }
+  };
+
+  // Auto-save position when playingAyah or isPaused changes (with debouncing)
+  useEffect(() => {
+    if (playingAyah) {
+      // Clear any existing timeout
+      if (savePositionTimeoutRef.current) {
+        clearTimeout(savePositionTimeoutRef.current);
+      }
+
+      // Set a new timeout to save after 500ms
+      savePositionTimeoutRef.current = setTimeout(() => {
+        try {
+          // Extract surah and ayah numbers from playingAyah string
+          const [surahNumber, ayahNumber] = playingAyah.split(':').map(Number);
+          
+          // Capture current scroll position
+          const scrollPosition = window.scrollY;
+          
+          // Save position
+          saveReadingPosition(surahNumber, ayahNumber, scrollPosition, isPaused);
+        } catch (error) {
+          console.error('Error auto-saving position:', error);
+        }
+      }, 500);
+    }
+
+    // Cleanup timeout on unmount
+    return () => {
+      if (savePositionTimeoutRef.current) {
+        clearTimeout(savePositionTimeoutRef.current);
+      }
+    };
+  }, [playingAyah, isPaused]);
+
+  // Restore position on mount
+  useEffect(() => {
+    try {
+      const savedPosition = localStorage.getItem('quran_reading_position');
+      
+      if (savedPosition) {
+        const position = JSON.parse(savedPosition);
+        
+        // Validate the position data
+        if (position.surahNumber && position.ayahNumber) {
+          setLastPlayedPosition(position);
+          
+          // Optionally restore scroll position after a short delay
+          // to ensure the page has rendered
+          if (position.scrollPosition !== undefined) {
+            setTimeout(() => {
+              window.scrollTo(0, position.scrollPosition);
+            }, 100);
+          }
+
+          // Show toast notification with surah name and ayah number
+          // Wait for surahs to be loaded before showing notification
+          const showNotification = () => {
+            if (surahs.length > 0) {
+              const surah = surahs.find(s => s.id === position.surahNumber);
+              if (surah) {
+                toast.success(
+                  `Continue from where you left off: ${surah.name_simple} (${surah.name_arabic}), Ayah ${position.ayahNumber}`,
+                  { duration: 4000 }
+                );
+              }
+            } else {
+              // If surahs not loaded yet, try again after a short delay
+              setTimeout(showNotification, 500);
+            }
+          };
+          
+          // Show notification after a brief delay to avoid overwhelming the user
+          setTimeout(showNotification, 1000);
+        }
+      }
+    } catch (error) {
+      console.error('Error restoring reading position:', error);
+      // Clear corrupted data
+      localStorage.removeItem('quran_reading_position');
+    }
+  }, []); // Empty dependency array - run once on mount
 
   const pauseAudio = () => {
     if (audioRef.current && playingAyah && !isPaused) {

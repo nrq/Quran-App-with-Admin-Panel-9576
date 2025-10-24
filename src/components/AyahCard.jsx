@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
@@ -10,7 +10,7 @@ const AyahCard = ({ verse, surahNumber, index }) => {
   const { playAudio, pauseAudio, resumeAudio, playingAyah, isPaused, getTafseer } = useQuran();
   const [showTafseer, setShowTafseer] = useState(false);
   const [isAudioLoaded, setIsAudioLoaded] = useState(true);
-  const [savedScrollPosition, setSavedScrollPosition] = useState(null);
+  const scrollPositionRef = useRef(null);
   const ayahKey = `${surahNumber}:${verse.verse_number}`;
   const isPlaying = playingAyah === ayahKey;
   const tafseerText = getTafseer(surahNumber, verse.verse_number);
@@ -21,8 +21,7 @@ const AyahCard = ({ verse, surahNumber, index }) => {
     e.stopPropagation();
     
     // Capture current scroll position before any state changes
-    const currentScroll = window.scrollY;
-    setSavedScrollPosition(currentScroll);
+    scrollPositionRef.current = window.scrollY;
     
     // Remove focus from button to prevent focus-based scrolling
     if (e.target) {
@@ -40,24 +39,20 @@ const AyahCard = ({ verse, surahNumber, index }) => {
       // Not playing -> play it
       playAudio(surahNumber, verse.verse_number);
     }
+    
+    // Restore scroll position immediately and after render
+    const restoreScroll = () => {
+      if (scrollPositionRef.current !== null) {
+        window.scrollTo(0, scrollPositionRef.current);
+      }
+    };
+    
+    restoreScroll();
+    requestAnimationFrame(restoreScroll);
+    setTimeout(restoreScroll, 0);
+    setTimeout(restoreScroll, 50);
+    setTimeout(restoreScroll, 100);
   };
-
-  // Restore scroll position after state updates
-  useEffect(() => {
-    if (savedScrollPosition !== null) {
-      // Use multiple methods to ensure scroll position is maintained
-      window.scrollTo(0, savedScrollPosition);
-      
-      requestAnimationFrame(() => {
-        window.scrollTo(0, savedScrollPosition);
-        
-        // Clear the saved position after restoration
-        setTimeout(() => {
-          setSavedScrollPosition(null);
-        }, 100);
-      });
-    }
-  }, [isPaused, isPlaying, savedScrollPosition]);
 
   // Reset audio loaded state when playingAyah changes
   useEffect(() => {

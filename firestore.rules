@@ -8,21 +8,21 @@ service cloud.firestore {
       return request.auth != null;
     }
     
-    // Custom URLs collection - authenticated users can manage
+    // Custom URLs collection - public read, authenticated write
     match /custom_urls/{urlId} {
-      allow read: if isAuthenticated();
+      allow read: if true;
       allow write: if isAuthenticated();
     }
     
-    // Audio mappings collection - authenticated users can manage
+    // Audio mappings collection - public read, authenticated write
     match /audio_mappings/{mappingId} {
-      allow read: if isAuthenticated();
+      allow read: if true;
       allow write: if isAuthenticated();
     }
     
-    // Tafseer entries collection - authenticated users can manage
+    // Tafseer entries collection - public read, authenticated write
     match /tafseer_entries/{entryId} {
-      allow read: if isAuthenticated();
+      allow read: if true;
       allow write: if isAuthenticated();
     }
   }

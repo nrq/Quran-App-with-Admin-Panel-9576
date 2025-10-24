@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, memo } from 'react';
 import { motion } from 'framer-motion';
 import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
@@ -7,17 +7,55 @@ import { useQuran } from '../contexts/QuranContext';
 const { FiPlay, FiPause, FiVolume2, FiBook } = FiIcons;
 
 const AyahCard = ({ verse, surahNumber, index }) => {
-  const { playAudio, pauseAudio, resumeAudio, playingAyah, isPaused, getTafseer } = useQuran();
+  const quranContext = useQuran();
+  const { playAudio, pauseAudio, resumeAudio, playingAyah, isPaused, getTafseer } = quranContext;
   const [showTafseer, setShowTafseer] = useState(false);
   const [isAudioLoaded, setIsAudioLoaded] = useState(true);
   const ayahKey = `${surahNumber}:${verse.verse_number}`;
   const isPlaying = playingAyah === ayahKey;
   const tafseerText = getTafseer(surahNumber, verse.verse_number);
 
-  // DEBUG: Track scroll events
+  // DEBUG: Track AyahCard re-renders - only log if this ayah is affected
+  if (isPlaying || playingAyah === null) {
+    console.log(`🔄 [AyahCard ${ayahKey}] Re-rendered - isPlaying: ${isPlaying}, isPaused: ${isPaused}`);
+  }
+
+  // Global scroll lock mechanism
   useEffect(() => {
     let lastScrollY = window.scrollY;
     let scrollTimeout;
+    let isScrollLocked = false;
+
+    // Create global scroll lock functions
+    window.lockScroll = (position) => {
+      isScrollLocked = true;
+      console.log(`🔒 [ScrollLock] Locking scroll at position: ${position}`);
+      
+      const restorePosition = () => {
+        if (isScrollLocked) {
+          window.scrollTo({
+            top: position,
+            left: 0,
+            behavior: 'instant'
+          });
+        }
+      };
+      
+      // Aggressive restoration
+      restorePosition();
+      requestAnimationFrame(restorePosition);
+      setTimeout(restorePosition, 0);
+      setTimeout(restorePosition, 10);
+      setTimeout(restorePosition, 50);
+      setTimeout(restorePosition, 100);
+      setTimeout(restorePosition, 200);
+      
+      // Auto-unlock after 500ms
+      setTimeout(() => {
+        isScrollLocked = false;
+        console.log(`🔓 [ScrollLock] Unlocking scroll`);
+      }, 500);
+    };
 
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
@@ -48,6 +86,7 @@ const AyahCard = ({ verse, surahNumber, index }) => {
       if (scrollTimeout) {
         clearTimeout(scrollTimeout);
       }
+      delete window.lockScroll;
     };
   }, []);
 
@@ -56,29 +95,10 @@ const AyahCard = ({ verse, surahNumber, index }) => {
     const scrollBefore = window.scrollY;
     console.log(`🎵 [AyahCard] Play button clicked - Scroll before: ${scrollBefore}`);
     
-    // Create scroll restoration function
-    const restoreScroll = () => {
-      window.scrollTo({
-        top: scrollBefore,
-        left: 0,
-        behavior: 'instant'
-      });
-      console.log(`🔄 [Scroll] Restored to position: ${scrollBefore}`);
-    };
-    
-    // Set up multiple restoration attempts to catch React re-renders
-    const scheduleScrollRestore = () => {
-      // Immediate restore
-      restoreScroll();
-      
-      // Restore after React state updates
-      requestAnimationFrame(restoreScroll);
-      setTimeout(restoreScroll, 0);
-      setTimeout(restoreScroll, 10);
-      setTimeout(restoreScroll, 50);
-      setTimeout(restoreScroll, 100);
-      setTimeout(restoreScroll, 200);
-    };
+    // Use global scroll lock to prevent jumping during re-renders
+    if (window.lockScroll) {
+      window.lockScroll(scrollBefore);
+    }
     
     // Simple approach - just call the audio functions
     setIsAudioLoaded(false);
@@ -87,24 +107,21 @@ const AyahCard = ({ verse, surahNumber, index }) => {
       // Currently playing and not paused -> pause it
       console.log(`🎵 [AyahCard] Pausing audio for ${ayahKey}`);
       pauseAudio();
-      scheduleScrollRestore();
     } else if (isPlaying && isPaused) {
       // Currently playing but paused -> resume it
       console.log(`🎵 [AyahCard] Resuming audio for ${ayahKey}`);
       resumeAudio();
-      scheduleScrollRestore();
     } else {
       // Not playing -> play it
       console.log(`🎵 [AyahCard] Starting audio for ${ayahKey}`);
       playAudio(surahNumber, verse.verse_number);
-      scheduleScrollRestore();
     }
     
     // DEBUG: Track scroll position after audio action
     setTimeout(() => {
       const scrollAfter = window.scrollY;
       console.log(`🎵 [AyahCard] Final scroll position: ${scrollAfter} (diff: ${scrollAfter - scrollBefore})`);
-    }, 300);
+    }, 600);
   };
 
   // Reset audio loaded state when playingAyah changes
@@ -178,4 +195,12 @@ const AyahCard = ({ verse, surahNumber, index }) => {
   );
 };
 
-export default AyahCard;
+// Memoize the component to prevent unnecessary re-renders
+export default memo(AyahCard, (prevProps, nextProps) => {
+  // Only re-render if the verse data actually changed
+  return (
+    prevProps.verse.verse_key === nextProps.verse.verse_key &&
+    prevProps.surahNumber === nextProps.surahNumber &&
+    prevProps.index === nextProps.index
+  );
+});

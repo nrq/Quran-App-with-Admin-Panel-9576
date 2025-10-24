@@ -757,59 +757,21 @@ export const QuranProvider = ({ children }) => {
   }, []); // Empty dependency array - run once on mount
 
   const pauseAudio = () => {
-    const scrollBeforePause = window.scrollY;
-    console.log(`🎵 [QuranContext] pauseAudio called - Scroll before: ${scrollBeforePause}`);
+    console.log(`🎵 [QuranContext] pauseAudio called`);
     
     if (audioRef.current && playingAyah && !isPaused) {
       audioRef.current.pause();
       setIsPaused(true);
-      
-      // Restore scroll position after state update
-      const restoreScroll = () => {
-        window.scrollTo({
-          top: scrollBeforePause,
-          left: 0,
-          behavior: 'instant'
-        });
-      };
-      
-      requestAnimationFrame(restoreScroll);
-      setTimeout(restoreScroll, 0);
-      setTimeout(restoreScroll, 50);
-      
-      setTimeout(() => {
-        const scrollAfterPause = window.scrollY;
-        console.log(`🎵 [QuranContext] Audio paused - Scroll after: ${scrollAfterPause} (diff: ${scrollAfterPause - scrollBeforePause})`);
-      }, 100);
     }
   };
 
   const resumeAudio = () => {
-    const scrollBeforeResume = window.scrollY;
-    console.log(`🎵 [QuranContext] resumeAudio called - Scroll before: ${scrollBeforeResume}`);
+    console.log(`🎵 [QuranContext] resumeAudio called`);
     
     if (audioRef.current && playingAyah && isPaused) {
       audioRef.current.play()
         .then(() => {
           setIsPaused(false);
-          
-          // Restore scroll position after state update
-          const restoreScroll = () => {
-            window.scrollTo({
-              top: scrollBeforeResume,
-              left: 0,
-              behavior: 'instant'
-            });
-          };
-          
-          requestAnimationFrame(restoreScroll);
-          setTimeout(restoreScroll, 0);
-          setTimeout(restoreScroll, 50);
-          
-          setTimeout(() => {
-            const scrollAfterResume = window.scrollY;
-            console.log(`🎵 [QuranContext] Audio resumed - Scroll after: ${scrollAfterResume} (diff: ${scrollAfterResume - scrollBeforeResume})`);
-          }, 100);
         })
         .catch((error) => {
           console.error('Error resuming audio:', error);
@@ -819,18 +781,7 @@ export const QuranProvider = ({ children }) => {
   };
 
   const playAudio = (surahNumber, ayahNumber, autoPlayNext = true) => {
-    // CAPTURE scroll position at start to prevent jumping
-    const scrollStart = window.scrollY;
-    console.log(`🎵 [QuranContext] playAudio called - Scroll at start: ${scrollStart}`);
-    
-    // Create scroll restoration function
-    const restoreScroll = () => {
-      window.scrollTo({
-        top: scrollStart,
-        left: 0,
-        behavior: 'instant'
-      });
-    };
+    console.log(`🎵 [QuranContext] playAudio called for ${surahNumber}:${ayahNumber}`);
     
     // If same ayah is playing, check pause state
     const ayahKey = `${surahNumber}:${ayahNumber}`;
@@ -868,21 +819,16 @@ export const QuranProvider = ({ children }) => {
     
     // Add event listeners
     audio.addEventListener('canplay', () => {
-      console.log(`🎵 [QuranContext] Audio can play - Scroll before play: ${window.scrollY}`);
+      console.log(`🎵 [QuranContext] Audio can play`);
       toast.dismiss(loadingToastId);
       audio.play()
         .then(() => {
-          console.log(`🎵 [QuranContext] Audio started playing - Scroll after play: ${window.scrollY}`);
+          console.log(`🎵 [QuranContext] Audio started playing`);
           
-          // Set state and restore scroll position
+          // Set state - scroll lock should handle position
           setPlayingAyah(ayahKey);
           setCurrentAudio(audio);
           setIsPaused(false);
-          
-          // Restore scroll after state updates
-          requestAnimationFrame(restoreScroll);
-          setTimeout(restoreScroll, 0);
-          setTimeout(restoreScroll, 50);
         })
         .catch((error) => {
           console.error('Error playing audio:', error);
@@ -894,8 +840,11 @@ export const QuranProvider = ({ children }) => {
     audio.addEventListener('ended', () => {
       console.log(`🎵 [QuranContext] Audio ended`);
       
-      // Capture scroll before state changes for auto-play
+      // Lock scroll position for auto-play transition
       const scrollBeforeEnd = window.scrollY;
+      if (window.lockScroll) {
+        window.lockScroll(scrollBeforeEnd);
+      }
       
       setPlayingAyah(null);
       setCurrentAudio(null);
@@ -905,15 +854,6 @@ export const QuranProvider = ({ children }) => {
       if (autoPlayNext) {
         const currentSurahData = surahs.find(s => s.id === surahNumber);
         if (currentSurahData && ayahNumber < currentSurahData.verses_count) {
-          // Restore scroll position before playing next
-          setTimeout(() => {
-            window.scrollTo({
-              top: scrollBeforeEnd,
-              left: 0,
-              behavior: 'instant'
-            });
-          }, 0);
-          
           // Play next ayah after a short delay
           setTimeout(() => {
             playAudio(surahNumber, ayahNumber + 1, true);

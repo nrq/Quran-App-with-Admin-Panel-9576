@@ -10,10 +10,13 @@ const { FiArrowLeft, FiBook, FiMapPin } = FiIcons;
 
 const Surah = () => {
   const { surahNumber } = useParams();
-  const { surahs, fetchSurahVerses, setCurrentSurah } = useQuran();
+  const { surahs, fetchSurahVerses, setCurrentSurah, playingAyah, isPaused } = useQuran();
   const [verses, setVerses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [surah, setSurah] = useState(null);
+
+  // DEBUG: Track component re-renders
+  console.log(`🔄 [Surah] Component re-rendered - playingAyah: ${playingAyah}, isPaused: ${isPaused}, verses: ${verses.length}`);
 
   // DEBUG: Track page navigation/reload
   useEffect(() => {
@@ -138,7 +141,7 @@ const Surah = () => {
         </motion.div>
       )}
 
-      <div className="space-y-6">
+      <div className="space-y-6" id="verses-container">
         {verses.map((verse, index) => (
           <AyahCard 
             key={verse.verse_key} 

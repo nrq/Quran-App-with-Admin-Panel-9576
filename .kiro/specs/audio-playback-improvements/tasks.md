@@ -12,7 +12,9 @@
   - Test that page maintains scroll position when play/pause buttons are clicked
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
 
-- [-] 2. Add pause/resume functionality to QuranContext
+- [x] 2. Add pause/resume functionality to QuranContext
+
+
 
 
 
@@ -45,13 +47,19 @@
     - Keep existing logic for playing new ayah
     - _Requirements: 2.1, 2.2, 2.3, 2.4_
   
-  - [-] 2.5 Export new functions and state from QuranContext
+  - [x] 2.5 Export new functions and state from QuranContext
+
 
     - Add `pauseAudio`, `resumeAudio`, and `isPaused` to context value
     - Update context interface for consumers
     - _Requirements: 2.1, 2.2, 2.3_
 
-- [ ] 3. Update AyahCard to use pause/resume functionality
+- [x] 3. Update AyahCard to use pause/resume functionality
+
+
+
+
+
   - Destructure `pauseAudio`, `resumeAudio`, and `isPaused` from useQuran hook
   - Update `handlePlayAudio` to call appropriate function based on play/pause state
   - Update button icon to show FiPause when playing, FiPlay when paused or stopped

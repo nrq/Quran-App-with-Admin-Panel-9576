@@ -7,9 +7,10 @@ import { useQuran } from '../contexts/QuranContext';
 const { FiPlay, FiPause, FiVolume2, FiBook } = FiIcons;
 
 const AyahCard = ({ verse, surahNumber, index }) => {
-  const { playAudio, stopAudio, playingAyah, getTafseer } = useQuran();
+  const { playAudio, pauseAudio, resumeAudio, playingAyah, isPaused, getTafseer } = useQuran();
   const [showTafseer, setShowTafseer] = useState(false);
   const [isAudioLoaded, setIsAudioLoaded] = useState(true);
+  const [savedScrollPosition, setSavedScrollPosition] = useState(null);
   const ayahKey = `${surahNumber}:${verse.verse_number}`;
   const isPlaying = playingAyah === ayahKey;
   const tafseerText = getTafseer(surahNumber, verse.verse_number);
@@ -19,8 +20,9 @@ const AyahCard = ({ verse, surahNumber, index }) => {
     e.preventDefault();
     e.stopPropagation();
     
-    // Capture current scroll position
+    // Capture current scroll position before any state changes
     const currentScroll = window.scrollY;
+    setSavedScrollPosition(currentScroll);
     
     // Remove focus from button to prevent focus-based scrolling
     if (e.target) {
@@ -28,17 +30,34 @@ const AyahCard = ({ verse, surahNumber, index }) => {
     }
     
     setIsAudioLoaded(false);
-    if (isPlaying) {
-      stopAudio();
+    if (isPlaying && !isPaused) {
+      // Currently playing and not paused -> pause it
+      pauseAudio();
+    } else if (isPlaying && isPaused) {
+      // Currently playing but paused -> resume it
+      resumeAudio();
     } else {
+      // Not playing -> play it
       playAudio(surahNumber, verse.verse_number);
     }
-    
-    // Restore scroll position after React render
-    requestAnimationFrame(() => {
-      window.scrollTo(0, currentScroll);
-    });
   };
+
+  // Restore scroll position after state updates
+  useEffect(() => {
+    if (savedScrollPosition !== null) {
+      // Use multiple methods to ensure scroll position is maintained
+      window.scrollTo(0, savedScrollPosition);
+      
+      requestAnimationFrame(() => {
+        window.scrollTo(0, savedScrollPosition);
+        
+        // Clear the saved position after restoration
+        setTimeout(() => {
+          setSavedScrollPosition(null);
+        }, 100);
+      });
+    }
+  }, [isPaused, isPlaying, savedScrollPosition]);
 
   // Reset audio loaded state when playingAyah changes
   useEffect(() => {
@@ -76,12 +95,12 @@ const AyahCard = ({ verse, surahNumber, index }) => {
           
           <button
             onClick={handlePlayAudio}
-            className={`flex items-center space-x-2 bg-islamic-gold hover:bg-yellow-600 text-white px-4 py-2 rounded-lg transition-colors audio-button ${isPlaying ? 'playing-animation' : ''}`}
+            className={`flex items-center space-x-2 bg-islamic-gold hover:bg-yellow-600 text-white px-4 py-2 rounded-lg transition-colors audio-button ${isPlaying && !isPaused ? 'playing-animation' : ''}`}
             disabled={!isAudioLoaded && isPlaying}
           >
-            <SafeIcon icon={isPlaying ? FiPause : FiPlay} className="text-sm" />
+            <SafeIcon icon={isPlaying && !isPaused ? FiPause : FiPlay} className="text-sm" />
             <SafeIcon icon={FiVolume2} className="text-sm" />
-            <span>{isPlaying ? 'Stop' : 'Play'}</span>
+            <span>{isPlaying && !isPaused ? 'Pause' : isPlaying && isPaused ? 'Resume' : 'Play'}</span>
           </button>
         </div>
       </div>

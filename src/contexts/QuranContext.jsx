@@ -735,6 +735,8 @@ export const QuranProvider = ({ children }) => {
     tafseerMappings,
     customUrls,
     currentSurah,
+    isPaused,
+    lastPlayedPosition,
     setCurrentSurah,
     saveAudioMapping,
     deleteAudioMapping,
@@ -748,6 +750,8 @@ export const QuranProvider = ({ children }) => {
     getAudioUrl,
     getTafseer,
     playAudio,
+    pauseAudio,
+    resumeAudio,
     stopAudio,
     fetchSurahVerses,
     fetchCustomUrls

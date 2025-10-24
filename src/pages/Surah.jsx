@@ -10,13 +10,13 @@ const { FiArrowLeft, FiBook, FiMapPin } = FiIcons;
 
 const Surah = () => {
   const { surahNumber } = useParams();
-  const { surahs, fetchSurahVerses, setCurrentSurah, playingAyah, isPaused } = useQuran();
+  const { surahs, fetchSurahVerses, setCurrentSurah } = useQuran(); // REMOVED playingAyah, isPaused
   const [verses, setVerses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [surah, setSurah] = useState(null);
 
   // DEBUG: Track component re-renders
-  console.log(`🔄 [Surah] Component re-rendered - playingAyah: ${playingAyah}, isPaused: ${isPaused}, verses: ${verses.length}`);
+  console.log(`🔄 [Surah] Component re-rendered - verses: ${verses.length}`);
 
   // DEBUG: Track page navigation/reload
   useEffect(() => {

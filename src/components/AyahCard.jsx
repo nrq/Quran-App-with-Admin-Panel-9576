@@ -32,7 +32,8 @@ const AyahCard = ({ verse, surahNumber, index }) => {
       console.log(`🔒 [ScrollLock] Locking scroll at position: ${position}`);
       
       const restorePosition = () => {
-        if (isScrollLocked) {
+        if (isScrollLocked && window.scrollY !== position) {
+          console.log(`🔄 [ScrollLock] Restoring from ${window.scrollY} to ${position}`);
           window.scrollTo({
             top: position,
             left: 0,
@@ -41,25 +42,45 @@ const AyahCard = ({ verse, surahNumber, index }) => {
         }
       };
       
-      // Aggressive restoration
+      // SUPER AGGRESSIVE restoration - catch all React re-renders
       restorePosition();
       requestAnimationFrame(restorePosition);
       setTimeout(restorePosition, 0);
+      setTimeout(restorePosition, 1);
+      setTimeout(restorePosition, 5);
       setTimeout(restorePosition, 10);
+      setTimeout(restorePosition, 16); // Next frame
+      setTimeout(restorePosition, 32); // Two frames
       setTimeout(restorePosition, 50);
       setTimeout(restorePosition, 100);
+      setTimeout(restorePosition, 150);
       setTimeout(restorePosition, 200);
+      setTimeout(restorePosition, 300);
+      setTimeout(restorePosition, 400);
       
-      // Auto-unlock after 500ms
+      // Auto-unlock after 800ms (longer to catch all re-renders)
       setTimeout(() => {
         isScrollLocked = false;
         console.log(`🔓 [ScrollLock] Unlocking scroll`);
-      }, 500);
+      }, 800);
     };
+
+    let lockedPosition = null;
 
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
       const scrollDiff = Math.abs(currentScrollY - lastScrollY);
+      
+      // If scroll is locked and position changed, force restore
+      if (isScrollLocked && lockedPosition !== null && Math.abs(currentScrollY - lockedPosition) > 5) {
+        console.log(`🚫 [ScrollLock] Blocked scroll jump: ${currentScrollY} → ${lockedPosition}`);
+        window.scrollTo({
+          top: lockedPosition,
+          left: 0,
+          behavior: 'instant'
+        });
+        return;
+      }
       
       // Only log significant scroll jumps
       if (scrollDiff > 100) {
@@ -79,6 +100,15 @@ const AyahCard = ({ verse, surahNumber, index }) => {
       }, 150);
     };
 
+    // Update the lockScroll function to store the locked position
+    const originalLockScroll = window.lockScroll;
+    window.lockScroll = (position) => {
+      lockedPosition = position;
+      if (originalLockScroll) {
+        originalLockScroll(position);
+      }
+    };
+
     window.addEventListener('scroll', handleScroll, { passive: true });
     
     return () => {
@@ -95,10 +125,25 @@ const AyahCard = ({ verse, surahNumber, index }) => {
     const scrollBefore = window.scrollY;
     console.log(`🎵 [AyahCard] Play button clicked - Scroll before: ${scrollBefore}`);
     
+    // IMMEDIATELY lock scroll position
+    const forceScrollPosition = () => {
+      if (window.scrollY !== scrollBefore) {
+        window.scrollTo({
+          top: scrollBefore,
+          left: 0,
+          behavior: 'instant'
+        });
+      }
+    };
+    
     // Use global scroll lock to prevent jumping during re-renders
     if (window.lockScroll) {
       window.lockScroll(scrollBefore);
     }
+    
+    // Force position multiple times during state changes
+    forceScrollPosition();
+    requestAnimationFrame(forceScrollPosition);
     
     // Simple approach - just call the audio functions
     setIsAudioLoaded(false);
@@ -107,15 +152,30 @@ const AyahCard = ({ verse, surahNumber, index }) => {
       // Currently playing and not paused -> pause it
       console.log(`🎵 [AyahCard] Pausing audio for ${ayahKey}`);
       pauseAudio();
+      // Force position after pause
+      setTimeout(forceScrollPosition, 0);
+      setTimeout(forceScrollPosition, 10);
     } else if (isPlaying && isPaused) {
       // Currently playing but paused -> resume it
       console.log(`🎵 [AyahCard] Resuming audio for ${ayahKey}`);
       resumeAudio();
+      // Force position after resume
+      setTimeout(forceScrollPosition, 0);
+      setTimeout(forceScrollPosition, 10);
     } else {
       // Not playing -> play it
       console.log(`🎵 [AyahCard] Starting audio for ${ayahKey}`);
       playAudio(surahNumber, verse.verse_number);
+      // Force position after play
+      setTimeout(forceScrollPosition, 0);
+      setTimeout(forceScrollPosition, 10);
     }
+    
+    // Continue forcing position for longer
+    setTimeout(forceScrollPosition, 50);
+    setTimeout(forceScrollPosition, 100);
+    setTimeout(forceScrollPosition, 200);
+    setTimeout(forceScrollPosition, 300);
     
     // DEBUG: Track scroll position after audio action
     setTimeout(() => {

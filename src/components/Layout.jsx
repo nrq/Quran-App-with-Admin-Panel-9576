@@ -3,7 +3,6 @@ import { Outlet, Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
-import OfflineIndicator from './OfflineIndicator';
 
 const { FiBook, FiSettings, FiHome } = FiIcons;
 
@@ -56,8 +55,6 @@ const Layout = () => {
           <Outlet />
         </motion.div>
       </main>
-      
-      <OfflineIndicator />
     </div>
   );
 };

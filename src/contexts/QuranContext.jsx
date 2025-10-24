@@ -14,6 +14,7 @@ import {
   serverTimestamp
 } from 'firebase/firestore';
 import { handleFirebaseError, logFirebaseError } from '../utils/firebaseErrorHandler';
+import { useAuth } from './AuthContext';
 
 const QuranContext = createContext();
 
@@ -26,6 +27,7 @@ export const useQuran = () => {
 };
 
 export const QuranProvider = ({ children }) => {
+  const { isAuthenticated } = useAuth();
   const [surahs, setSurahs] = useState([]);
   const [currentAudio, setCurrentAudio] = useState(null);
   const [playingAyah, setPlayingAyah] = useState(null);
@@ -59,9 +61,24 @@ export const QuranProvider = ({ children }) => {
     loadSurahs();
   }, []);
 
-  // Load audio, tafseer mappings and custom URLs from Firestore
+  // Load audio, tafseer mappings and custom URLs from Firestore (only when authenticated)
   useEffect(() => {
     const fetchMappings = async () => {
+      // Only fetch from Firestore if user is authenticated
+      if (!isAuthenticated) {
+        // Load from localStorage for unauthenticated users
+        const savedAudioMappings = localStorage.getItem('quran_audio_mappings');
+        if (savedAudioMappings) {
+          setAudioMappings(JSON.parse(savedAudioMappings));
+        }
+        
+        const savedTafseerMappings = localStorage.getItem('quran_tafseer_mappings');
+        if (savedTafseerMappings) {
+          setTafseerMappings(JSON.parse(savedTafseerMappings));
+        }
+        return;
+      }
+
       try {
         // Fetch custom URLs from Firestore
         const customUrlsRef = collection(db, 'custom_urls');
@@ -110,9 +127,12 @@ export const QuranProvider = ({ children }) => {
         });
         setTafseerMappings(tafseerMap);
       } catch (error) {
-        logFirebaseError('Fetch Mappings', error);
-        const errorMessage = handleFirebaseError(error);
-        toast.error(errorMessage);
+        // Only log and show errors that are not permission-denied
+        if (error.code !== 'permission-denied') {
+          logFirebaseError('Fetch Mappings', error);
+          const errorMessage = handleFirebaseError(error);
+          toast.error(errorMessage);
+        }
         
         // Fallback to localStorage if Firestore fails
         const savedAudioMappings = localStorage.getItem('quran_audio_mappings');
@@ -128,52 +148,84 @@ export const QuranProvider = ({ children }) => {
     };
     
     fetchMappings();
-  }, []);
+  }, [isAuthenticated]);
 
-  // Set up real-time subscription for updates with Firestore
+  // Set up real-time subscription for updates with Firestore (only when authenticated)
   useEffect(() => {
+    // Only set up listeners if user is authenticated
+    if (!isAuthenticated) {
+      return;
+    }
+
     // Subscribe to audio mappings changes
     const audioMappingsRef = collection(db, 'audio_mappings');
-    const unsubscribeAudio = onSnapshot(audioMappingsRef, (snapshot) => {
-      snapshot.docChanges().forEach((change) => {
-        if (change.type === 'added' || change.type === 'modified') {
-          const data = change.doc.data();
-          fetchUpdatedAudioMapping(data.surah_number, data.ayah_number);
+    const unsubscribeAudio = onSnapshot(
+      audioMappingsRef, 
+      (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === 'added' || change.type === 'modified') {
+            const data = change.doc.data();
+            fetchUpdatedAudioMapping(data.surah_number, data.ayah_number);
+          }
+        });
+      },
+      (error) => {
+        // Silently handle permission errors for unauthenticated users
+        if (error.code !== 'permission-denied') {
+          logFirebaseError('Audio Mappings Listener', error);
         }
-      });
-    });
+      }
+    );
     
     // Subscribe to tafseer entries changes
     const tafseerEntriesRef = collection(db, 'tafseer_entries');
-    const unsubscribeTafseer = onSnapshot(tafseerEntriesRef, (snapshot) => {
-      snapshot.docChanges().forEach((change) => {
-        if (change.type === 'added' || change.type === 'modified') {
-          const data = change.doc.data();
-          const key = `${data.surah_number}:${data.ayah_number}`;
-          setTafseerMappings(prev => ({ ...prev, [key]: data.tafseer_text }));
+    const unsubscribeTafseer = onSnapshot(
+      tafseerEntriesRef, 
+      (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === 'added' || change.type === 'modified') {
+            const data = change.doc.data();
+            const key = `${data.surah_number}:${data.ayah_number}`;
+            setTafseerMappings(prev => ({ ...prev, [key]: data.tafseer_text }));
+          }
+        });
+      },
+      (error) => {
+        // Silently handle permission errors for unauthenticated users
+        if (error.code !== 'permission-denied') {
+          logFirebaseError('Tafseer Entries Listener', error);
         }
-      });
-    });
+      }
+    );
     
     // Subscribe to custom URLs changes
     const customUrlsRef = collection(db, 'custom_urls');
-    const unsubscribeUrls = onSnapshot(customUrlsRef, (snapshot) => {
-      snapshot.docChanges().forEach((change) => {
-        if (change.type === 'added' || change.type === 'modified') {
-          // Refresh custom URLs list
-          fetchCustomUrls();
-          // Update any audio mappings that might use this URL
-          updateAudioMappingsWithUrl(change.doc.id);
+    const unsubscribeUrls = onSnapshot(
+      customUrlsRef, 
+      (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === 'added' || change.type === 'modified') {
+            // Refresh custom URLs list
+            fetchCustomUrls();
+            // Update any audio mappings that might use this URL
+            updateAudioMappingsWithUrl(change.doc.id);
+          }
+        });
+      },
+      (error) => {
+        // Silently handle permission errors for unauthenticated users
+        if (error.code !== 'permission-denied') {
+          logFirebaseError('Custom URLs Listener', error);
         }
-      });
-    });
+      }
+    );
     
     return () => {
       unsubscribeAudio();
       unsubscribeTafseer();
       unsubscribeUrls();
     };
-  }, []);
+  }, [isAuthenticated]);
 
   // Fetch a single updated audio mapping
   const fetchUpdatedAudioMapping = async (surahNumber, ayahNumber) => {

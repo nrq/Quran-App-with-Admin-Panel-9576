@@ -605,15 +605,20 @@ export const QuranProvider = ({ children }) => {
     return tafseerMappings[key] || '';
   };
 
-  const playAudio = (surahNumber, ayahNumber) => {
+  const playAudio = (surahNumber, ayahNumber, autoPlayNext = true) => {
+    // If same ayah is playing, just pause it
+    const ayahKey = `${surahNumber}:${ayahNumber}`;
+    if (audioRef.current && playingAyah === ayahKey) {
+      audioRef.current.pause();
+      setPlayingAyah(null);
+      return;
+    }
+
     // If there's already audio playing, stop it
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current = null;
     }
-
-    // Create key for current playing ayah
-    const ayahKey = `${surahNumber}:${ayahNumber}`;
     
     // Get the audio URL
     const audioUrl = getAudioUrl(surahNumber, ayahNumber);
@@ -645,6 +650,17 @@ export const QuranProvider = ({ children }) => {
     audio.addEventListener('ended', () => {
       setPlayingAyah(null);
       setCurrentAudio(null);
+      
+      // Auto-play next ayah if enabled
+      if (autoPlayNext) {
+        const currentSurahData = surahs.find(s => s.id === surahNumber);
+        if (currentSurahData && ayahNumber < currentSurahData.verses_count) {
+          // Play next ayah after a short delay
+          setTimeout(() => {
+            playAudio(surahNumber, ayahNumber + 1, true);
+          }, 500);
+        }
+      }
     });
     
     audio.addEventListener('error', (e) => {

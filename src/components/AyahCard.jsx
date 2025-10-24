@@ -14,7 +14,11 @@ const AyahCard = ({ verse, surahNumber, index }) => {
   const isPlaying = playingAyah === ayahKey;
   const tafseerText = getTafseer(surahNumber, verse.verse_number);
 
-  const handlePlayAudio = () => {
+  const handlePlayAudio = (e) => {
+    // Prevent default behavior and stop propagation to avoid scrolling
+    e.preventDefault();
+    e.stopPropagation();
+    
     setIsAudioLoaded(false);
     if (isPlaying) {
       stopAudio();

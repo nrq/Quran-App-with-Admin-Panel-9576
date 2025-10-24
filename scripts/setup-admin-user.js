@@ -1,15 +1,19 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, addDoc, query, where, getDocs } from 'firebase/firestore';
+import dotenv from 'dotenv';
 
-// Firebase configuration
+// Load environment variables
+dotenv.config();
+
+// Firebase configuration from environment variables
 const firebaseConfig = {
-  apiKey: "AIzaSyCiTKUwBWUsYL8sWEm5JEBZGolk2KN1Uuk",
-  authDomain: "quranreadertanzil.firebaseapp.com",
-  projectId: "quranreadertanzil",
-  storageBucket: "quranreadertanzil.firebasestorage.app",
-  messagingSenderId: "115345566711",
-  appId: "1:115345566711:web:dfc6f51d5a317c94229cf2",
-  measurementId: "G-HPQ4YCK20J"
+  apiKey: process.env.VITE_FIREBASE_API_KEY,
+  authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.VITE_FIREBASE_APP_ID,
+  measurementId: process.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 // Initialize Firebase

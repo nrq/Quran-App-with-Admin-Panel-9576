@@ -8,7 +8,6 @@ import React, {
   useState
 } from 'react';
 import toast from 'react-hot-toast';
-import { Howl } from 'howler';
 import { db } from '../lib/firebase';
 import {
   addDoc,
@@ -476,38 +475,50 @@ export const QuranProvider = ({ children }) => {
   }, [tafseerMappings]);
 
   const pauseAudio = useCallback(() => {
-    if (audioRef.current && playingAyah && !isPaused) {
-      audioRef.current.pause();
-      setIsPaused(true);
+    if (!audioRef.current || audioRef.current.paused) {
+      return;
     }
-  }, [isPaused, playingAyah]);
+    audioRef.current.pause();
+  }, []);
 
   const resumeAudio = useCallback(() => {
-    if (audioRef.current && playingAyah && isPaused) {
-      audioRef.current.play();
-      setIsPaused(false);
+    if (!audioRef.current || !audioRef.current.paused) {
+      return;
     }
-  }, [isPaused, playingAyah]);
+    const playPromise = audioRef.current.play();
+    if (playPromise) {
+      playPromise.catch((error) => {
+        console.error('Audio resume error:', error);
+        toast.error('Unable to resume audio playback.');
+      });
+    }
+  }, []);
 
-  const stopAudio = useCallback(() => {
-    if (!audioRef.current) {
+  const destroyCurrentAudio = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio) {
       return;
     }
 
-    audioRef.current.stop();
-    audioRef.current.unload();
+    audio.pause();
+    audio.removeAttribute('src');
+    audio.load();
     audioRef.current = null;
+  }, []);
+
+  const stopAudio = useCallback(() => {
+    destroyCurrentAudio();
     setCurrentAudio(null);
     setPlayingAyah(null);
     setIsPaused(false);
-  }, []);
+  }, [destroyCurrentAudio]);
 
   const playAudio = useCallback(
     (surahNumber, ayahNumber, autoPlayNext = true) => {
       const ayahKey = `${surahNumber}:${ayahNumber}`;
 
       if (audioRef.current && playingAyah === ayahKey) {
-        if (isPaused) {
+        if (audioRef.current.paused) {
           resumeAudio();
         } else {
           pauseAudio();
@@ -515,69 +526,80 @@ export const QuranProvider = ({ children }) => {
         return;
       }
 
-      if (audioRef.current) {
-        audioRef.current.stop();
-        audioRef.current.unload();
-        audioRef.current = null;
-      }
+      destroyCurrentAudio();
 
       const audioUrl = getAudioUrl(surahNumber, ayahNumber);
       const loadingToastId = toast.loading('Loading audio...');
 
-      const howl = new Howl({
-        src: [audioUrl],
-        format: ['mp3'],
-        preload: true,
-        onload: () => {
-          toast.dismiss(loadingToastId);
-        },
-        onplay: () => {
-          setPlayingAyah(ayahKey);
-          setCurrentAudio(howl);
-          setIsPaused(false);
-        },
-        onpause: () => {
+      const audio = new Audio(audioUrl);
+      audio.preload = 'auto';
+      audio.crossOrigin = 'anonymous';
+
+      const handlePlaying = () => {
+        toast.dismiss(loadingToastId);
+        setPlayingAyah(ayahKey);
+        setIsPaused(false);
+      };
+
+      const handlePause = () => {
+        if (audio.paused) {
           setIsPaused(true);
-        },
-        onresume: () => {
-          setIsPaused(false);
-        },
-        onend: () => {
-          setPlayingAyah(null);
-          setCurrentAudio(null);
-          setIsPaused(false);
-
-          if (!autoPlayNext) {
-            return;
-          }
-
-          const currentSurahData = surahs.find((surah) => surah.id === surahNumber);
-          if (!currentSurahData || ayahNumber >= currentSurahData.verses_count) {
-            return;
-          }
-
-          setTimeout(() => {
-            playAudio(surahNumber, ayahNumber + 1, true);
-          }, 500);
-        },
-        onloaderror: (id, error) => {
-          console.error('Howler load error:', error);
-          toast.dismiss(loadingToastId);
-          toast.error('Failed to load audio. Please try another ayah.');
-          setPlayingAyah(null);
-        },
-        onplayerror: (id, error) => {
-          console.error('Howler play error:', error);
-          toast.dismiss(loadingToastId);
-          toast.error('Failed to play audio. Please try again.');
-          setPlayingAyah(null);
         }
-      });
+      };
 
-      audioRef.current = howl;
-      howl.play();
+      const handleError = (event) => {
+        console.error('Audio playback error:', event);
+        toast.dismiss(loadingToastId);
+        toast.error('Failed to play audio. Please try another ayah.');
+        setPlayingAyah(null);
+        setIsPaused(false);
+        setCurrentAudio(null);
+        destroyCurrentAudio();
+      };
+
+      const handleEnded = () => {
+        setPlayingAyah(null);
+        setCurrentAudio(null);
+        setIsPaused(false);
+        destroyCurrentAudio();
+
+        if (!autoPlayNext) {
+          return;
+        }
+
+        const currentSurahData = surahs.find((surah) => surah.id === surahNumber);
+        if (!currentSurahData || ayahNumber >= currentSurahData.verses_count) {
+          return;
+        }
+
+        setTimeout(() => {
+          playAudio(surahNumber, ayahNumber + 1, true);
+        }, 500);
+      };
+
+      audio.addEventListener('playing', handlePlaying);
+      audio.addEventListener('pause', handlePause);
+      audio.addEventListener('ended', handleEnded);
+      audio.addEventListener('error', handleError);
+      audio.addEventListener('stalled', handleError);
+
+      audioRef.current = audio;
+      setCurrentAudio(audio);
+
+      const playPromise = audio.play();
+      if (playPromise) {
+        playPromise.catch((error) => {
+          console.error('Audio play promise rejected:', error);
+          toast.dismiss(loadingToastId);
+          toast.error('Playback was interrupted. Please try again.');
+          setPlayingAyah(null);
+          setIsPaused(false);
+          setCurrentAudio(null);
+          destroyCurrentAudio();
+        });
+      }
     },
-    [getAudioUrl, isPaused, pauseAudio, playingAyah, resumeAudio, surahs]
+    [destroyCurrentAudio, getAudioUrl, pauseAudio, playingAyah, resumeAudio, surahs]
   );
 
   const fetchSurahVerses = useCallback(async (surahNumber) => {

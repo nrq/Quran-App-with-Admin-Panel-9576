@@ -10,20 +10,20 @@ service cloud.firestore {
     
     // Custom URLs collection - public read, authenticated write
     match /custom_urls/{urlId} {
-      allow read: if true;
-      allow write: if isAuthenticated();
+      allow get, list: if true;
+      allow create, update, delete: if isAuthenticated();
     }
     
     // Audio mappings collection - public read, authenticated write
     match /audio_mappings/{mappingId} {
-      allow read: if true;
-      allow write: if isAuthenticated();
+      allow get, list: if true;
+      allow create, update, delete: if isAuthenticated();
     }
     
     // Tafseer entries collection - public read, authenticated write
     match /tafseer_entries/{entryId} {
-      allow read: if true;
-      allow write: if isAuthenticated();
+      allow get, list: if true;
+      allow create, update, delete: if isAuthenticated();
     }
   }
 }

@@ -2,12 +2,12 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
-import { useQuran } from '../contexts/QuranContext';
+import { useQuranAudio } from '../contexts/QuranContext';
 
 const { FiPlay, FiPause, FiArrowLeft } = FiIcons;
 
 const AudioPlayer = ({ verses, surah, surahNumber, onScrollToAyah }) => {
-  const { playingAyah, isPaused, playAudio, pauseAudio, resumeAudio, stopAudio } = useQuran();
+  const { playingAyah, isPaused, playAudio, pauseAudio, resumeAudio, stopAudio } = useQuranAudio();
   
   // Local state to prevent re-renders
   const [isVisible, setIsVisible] = useState(false);

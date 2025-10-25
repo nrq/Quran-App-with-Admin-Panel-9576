@@ -1,10 +1,10 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import SurahCard from '../components/SurahCard';
-import { useQuran } from '../contexts/QuranContext';
+import { useQuranData } from '../contexts/QuranContext';
 
 const Home = () => {
-  const { surahs, loading } = useQuran();
+  const { surahs, loading } = useQuranData();
 
   if (loading) {
     return (

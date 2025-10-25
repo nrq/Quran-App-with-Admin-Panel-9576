@@ -1,198 +1,32 @@
-import React, { useState, useEffect, useRef, memo } from 'react';
+import React, { memo, useState } from 'react';
 import { motion } from 'framer-motion';
 import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
-import { useQuran } from '../contexts/QuranContext';
+import { useQuranAudio, useQuranData } from '../contexts/QuranContext';
 
 const { FiPlay, FiPause, FiVolume2, FiBook } = FiIcons;
 
-const AyahCard = ({ verse, surahNumber, index }) => {
-  const quranContext = useQuran();
-  const { playAudio, pauseAudio, resumeAudio, playingAyah, isPaused, getTafseer } = quranContext;
+const AyahCard = ({ verse, surahNumber }) => {
+  const { playAudio, pauseAudio, resumeAudio, playingAyah, isPaused } = useQuranAudio();
+  const { getTafseer } = useQuranData();
   const [showTafseer, setShowTafseer] = useState(false);
-  const [isAudioLoaded, setIsAudioLoaded] = useState(true);
+
   const ayahKey = `${surahNumber}:${verse.verse_number}`;
   const isPlaying = playingAyah === ayahKey;
   const tafseerText = getTafseer(surahNumber, verse.verse_number);
 
-  // DEBUG: Track AyahCard re-renders - only log if this ayah is affected
-  if (isPlaying || playingAyah === null) {
-    console.log(`🔄 [AyahCard ${ayahKey}] Re-rendered - isPlaying: ${isPlaying}, isPaused: ${isPaused}`);
-  }
-
-  // Global scroll lock mechanism
-  useEffect(() => {
-    let lastScrollY = window.scrollY;
-    let scrollTimeout;
-    let isScrollLocked = false;
-
-    // Create global scroll lock functions
-    window.lockScroll = (position) => {
-      isScrollLocked = true;
-      console.log(`🔒 [ScrollLock] Locking scroll at position: ${position}`);
-      
-      const restorePosition = () => {
-        if (isScrollLocked && window.scrollY !== position) {
-          console.log(`🔄 [ScrollLock] Restoring from ${window.scrollY} to ${position}`);
-          window.scrollTo({
-            top: position,
-            left: 0,
-            behavior: 'instant'
-          });
-        }
-      };
-      
-      // SUPER AGGRESSIVE restoration - catch all React re-renders
-      restorePosition();
-      requestAnimationFrame(restorePosition);
-      setTimeout(restorePosition, 0);
-      setTimeout(restorePosition, 1);
-      setTimeout(restorePosition, 5);
-      setTimeout(restorePosition, 10);
-      setTimeout(restorePosition, 16); // Next frame
-      setTimeout(restorePosition, 32); // Two frames
-      setTimeout(restorePosition, 50);
-      setTimeout(restorePosition, 100);
-      setTimeout(restorePosition, 150);
-      setTimeout(restorePosition, 200);
-      setTimeout(restorePosition, 300);
-      setTimeout(restorePosition, 400);
-      
-      // Auto-unlock after 800ms (longer to catch all re-renders)
-      setTimeout(() => {
-        isScrollLocked = false;
-        console.log(`🔓 [ScrollLock] Unlocking scroll`);
-      }, 800);
-    };
-
-    let lockedPosition = null;
-
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-      const scrollDiff = Math.abs(currentScrollY - lastScrollY);
-      
-      // If scroll is locked and position changed, force restore
-      if (isScrollLocked && lockedPosition !== null && Math.abs(currentScrollY - lockedPosition) > 5) {
-        console.log(`🚫 [ScrollLock] Blocked scroll jump: ${currentScrollY} → ${lockedPosition}`);
-        window.scrollTo({
-          top: lockedPosition,
-          left: 0,
-          behavior: 'instant'
-        });
-        return;
-      }
-      
-      // Only log significant scroll jumps
-      if (scrollDiff > 100) {
-        console.log(`📜 [Scroll] Large scroll jump detected: ${lastScrollY} → ${currentScrollY} (diff: ${scrollDiff})`);
-      }
-      
-      lastScrollY = currentScrollY;
-      
-      // Clear previous timeout
-      if (scrollTimeout) {
-        clearTimeout(scrollTimeout);
-      }
-      
-      // Set new timeout to detect scroll end
-      scrollTimeout = setTimeout(() => {
-        console.log(`📜 [Scroll] Scroll ended at: ${window.scrollY}`);
-      }, 150);
-    };
-
-    // Update the lockScroll function to store the locked position
-    const originalLockScroll = window.lockScroll;
-    window.lockScroll = (position) => {
-      lockedPosition = position;
-      if (originalLockScroll) {
-        originalLockScroll(position);
-      }
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-      if (scrollTimeout) {
-        clearTimeout(scrollTimeout);
-      }
-      delete window.lockScroll;
-    };
-  }, []);
-
   const handlePlayAudio = () => {
-    // CAPTURE scroll position BEFORE any state changes
-    const scrollBefore = window.scrollY;
-    console.log(`🎵 [AyahCard] Play button clicked - Scroll before: ${scrollBefore}`);
-    
-    // IMMEDIATELY lock scroll position
-    const forceScrollPosition = () => {
-      if (window.scrollY !== scrollBefore) {
-        window.scrollTo({
-          top: scrollBefore,
-          left: 0,
-          behavior: 'instant'
-        });
-      }
-    };
-    
-    // Use global scroll lock to prevent jumping during re-renders
-    if (window.lockScroll) {
-      window.lockScroll(scrollBefore);
-    }
-    
-    // Force position multiple times during state changes
-    forceScrollPosition();
-    requestAnimationFrame(forceScrollPosition);
-    
-    // Simple approach - just call the audio functions
-    setIsAudioLoaded(false);
-    
     if (isPlaying && !isPaused) {
-      // Currently playing and not paused -> pause it
-      console.log(`🎵 [AyahCard] Pausing audio for ${ayahKey}`);
       pauseAudio();
-      // Force position after pause
-      setTimeout(forceScrollPosition, 0);
-      setTimeout(forceScrollPosition, 10);
-    } else if (isPlaying && isPaused) {
-      // Currently playing but paused -> resume it
-      console.log(`🎵 [AyahCard] Resuming audio for ${ayahKey}`);
+      return;
+    }
+
+    if (isPlaying && isPaused) {
       resumeAudio();
-      // Force position after resume
-      setTimeout(forceScrollPosition, 0);
-      setTimeout(forceScrollPosition, 10);
-    } else {
-      // Not playing -> play it
-      console.log(`🎵 [AyahCard] Starting audio for ${ayahKey}`);
-      playAudio(surahNumber, verse.verse_number);
-      // Force position after play
-      setTimeout(forceScrollPosition, 0);
-      setTimeout(forceScrollPosition, 10);
+      return;
     }
-    
-    // Continue forcing position for longer
-    setTimeout(forceScrollPosition, 50);
-    setTimeout(forceScrollPosition, 100);
-    setTimeout(forceScrollPosition, 200);
-    setTimeout(forceScrollPosition, 300);
-    
-    // DEBUG: Track scroll position after audio action
-    setTimeout(() => {
-      const scrollAfter = window.scrollY;
-      console.log(`🎵 [AyahCard] Final scroll position: ${scrollAfter} (diff: ${scrollAfter - scrollBefore})`);
-    }, 600);
-  };
 
-  // Reset audio loaded state when playingAyah changes
-  useEffect(() => {
-    if (isPlaying) {
-      setIsAudioLoaded(true);
-    }
-  }, [isPlaying]);
-
-  const toggleTafseer = () => {
-    setShowTafseer(!showTafseer);
+    playAudio(surahNumber, verse.verse_number);
   };
 
   return (
@@ -203,27 +37,24 @@ const AyahCard = ({ verse, surahNumber, index }) => {
       className={`ayah-card bg-white rounded-xl p-6 shadow-md ${isPlaying ? 'playing' : ''}`}
     >
       <div className="flex items-start justify-between mb-4">
-        <div className="verse-number">
-          {verse.verse_number}
-        </div>
-        
+        <div className="verse-number">{verse.verse_number}</div>
+
         <div className="flex space-x-2">
           {tafseerText && (
             <button
               type="button"
-              onClick={toggleTafseer}
+              onClick={() => setShowTafseer((prev) => !prev)}
               className="flex items-center space-x-2 bg-islamic-600 hover:bg-islamic-700 text-white px-4 py-2 rounded-lg transition-colors"
             >
               <SafeIcon icon={FiBook} className="text-sm" />
               <span>{showTafseer ? 'Hide' : 'Show'} Tafseer</span>
             </button>
           )}
-          
+
           <button
             type="button"
             onClick={handlePlayAudio}
             className={`flex items-center space-x-2 bg-islamic-gold hover:bg-yellow-600 text-white px-4 py-2 rounded-lg transition-colors audio-button ${isPlaying && !isPaused ? 'playing-animation' : ''}`}
-            disabled={!isAudioLoaded && isPlaying}
           >
             <SafeIcon icon={isPlaying && !isPaused ? FiPause : FiPlay} className="text-sm" />
             <SafeIcon icon={FiVolume2} className="text-sm" />
@@ -236,14 +67,14 @@ const AyahCard = ({ verse, surahNumber, index }) => {
         <div className="quran-text-pak text-islamic-800 text-right leading-loose">
           {verse.text_uthmani}
         </div>
-        
+
         {verse.translations && verse.translations[0] && (
           <div className="english-text text-islamic-600 bg-islamic-50 p-4 rounded-lg">
             <p className="text-sm font-medium text-islamic-500 mb-2">Translation:</p>
             <p>{verse.translations[0].text}</p>
           </div>
         )}
-        
+
         {showTafseer && tafseerText && (
           <div className="bg-islamic-50 border-l-4 border-islamic-gold p-4 rounded-lg mt-3">
             <p className="text-sm font-medium text-islamic-500 mb-2">Tafseer:</p>
@@ -255,12 +86,9 @@ const AyahCard = ({ verse, surahNumber, index }) => {
   );
 };
 
-// Memoize the component to prevent unnecessary re-renders
 export default memo(AyahCard, (prevProps, nextProps) => {
-  // Only re-render if the verse data actually changed
   return (
-    prevProps.verse.verse_key === nextProps.verse.verse_key &&
     prevProps.surahNumber === nextProps.surahNumber &&
-    prevProps.index === nextProps.index
+    prevProps.verse.verse_key === nextProps.verse.verse_key
   );
 });

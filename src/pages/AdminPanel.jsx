@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
 import { useAuth } from '../contexts/AuthContext';
-import { useQuran } from '../contexts/QuranContext';
+import { useQuranData } from '../contexts/QuranContext';
 import toast from 'react-hot-toast';
 import { db } from '../lib/firebase';
 import { collection, writeBatch, doc, updateDoc, deleteDoc, query, where, getDocs } from 'firebase/firestore';
@@ -13,7 +13,7 @@ const { FiLogOut, FiMusic, FiSave, FiPlay, FiSearch, FiBook, FiDatabase, FiRefre
 
 const AdminPanel = () => {
   const { logout, user } = useAuth();
-  const { 
+  const {
     surahs, 
     audioMappings, 
     tafseerMappings, 
@@ -22,7 +22,7 @@ const AdminPanel = () => {
     saveTafseerMapping,
     saveCustomUrl,
     fetchCustomUrls 
-  } = useQuran();
+  } = useQuranData();
   
   const [activeTab, setActiveTab] = useState('audio'); // 'audio', 'tafseer', or 'urls'
   const [selectedSurah, setSelectedSurah] = useState('');

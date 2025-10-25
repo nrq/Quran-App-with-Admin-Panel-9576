@@ -35,14 +35,14 @@ vi.mock('../../contexts/AuthContext', () => ({
 }));
 
 vi.mock('../../contexts/QuranContext', () => ({
-  useQuran: vi.fn()
+  useQuranData: vi.fn()
 }));
 
 describe('AdminPanel Firebase Integration', () => {
   let mockAuthContext;
   let mockQuranContext;
   let useAuth;
-  let useQuran;
+  let useQuranData;
   let toast;
   let writeBatch;
   let doc;
@@ -55,7 +55,7 @@ describe('AdminPanel Firebase Integration', () => {
 
   const renderAdminPanel = () => {
     useAuth.mockReturnValue(mockAuthContext);
-    useQuran.mockReturnValue(mockQuranContext);
+  useQuranData.mockReturnValue(mockQuranContext);
     
     return render(
       <BrowserRouter>
@@ -70,12 +70,12 @@ describe('AdminPanel Firebase Integration', () => {
     
     // Import mocked modules
     const authModule = await import('../../contexts/AuthContext');
-    const quranModule = await import('../../contexts/QuranContext');
+  const quranModule = await import('../../contexts/QuranContext');
     const toastModule = await import('react-hot-toast');
     const firestoreModule = await import('firebase/firestore');
     
-    useAuth = authModule.useAuth;
-    useQuran = quranModule.useQuran;
+  useAuth = authModule.useAuth;
+  useQuranData = quranModule.useQuranData;
     toast = toastModule.default;
     writeBatch = firestoreModule.writeBatch;
     doc = firestoreModule.doc;
@@ -107,7 +107,7 @@ describe('AdminPanel Firebase Integration', () => {
     
     // Reset all mock functions
     useAuth.mockReturnValue(mockAuthContext);
-    useQuran.mockReturnValue(mockQuranContext);
+  useQuranData.mockReturnValue(mockQuranContext);
     toast.success.mockClear();
     toast.error.mockClear();
     writeBatch.mockClear();
@@ -246,8 +246,8 @@ describe('AdminPanel Firebase Integration', () => {
         description: 'Test description'
       };
 
-      mockQuranContext.customUrls = [mockUrl];
-      useQuran.mockReturnValue(mockQuranContext);
+  mockQuranContext.customUrls = [mockUrl];
+  useQuranData.mockReturnValue(mockQuranContext);
       updateDoc.mockResolvedValue(undefined);
 
       renderAdminPanel();
@@ -268,8 +268,8 @@ describe('AdminPanel Firebase Integration', () => {
         title: 'Test URL'
       };
 
-      mockQuranContext.customUrls = [mockUrl];
-      useQuran.mockReturnValue(mockQuranContext);
+  mockQuranContext.customUrls = [mockUrl];
+  useQuranData.mockReturnValue(mockQuranContext);
       
       const mockQuerySnapshot = {
         empty: false,
@@ -323,7 +323,7 @@ describe('AdminPanel Firebase Integration', () => {
       };
 
       mockQuranContext.customUrls = [mockUrl];
-      useQuran.mockReturnValue(mockQuranContext);
+  useQuranData.mockReturnValue(mockQuranContext);
       getDocs.mockRejectedValue({ code: 'unavailable' });
 
       window.confirm = vi.fn(() => true);
@@ -346,7 +346,7 @@ describe('AdminPanel Firebase Integration', () => {
       };
 
       mockQuranContext.customUrls = [mockUrl];
-      useQuran.mockReturnValue(mockQuranContext);
+  useQuranData.mockReturnValue(mockQuranContext);
 
       window.confirm = vi.fn(() => false);
 
@@ -373,7 +373,7 @@ describe('AdminPanel Firebase Integration', () => {
       };
 
       mockQuranContext.customUrls = [mockUrl];
-      useQuran.mockReturnValue(mockQuranContext);
+  useQuranData.mockReturnValue(mockQuranContext);
 
       renderAdminPanel();
 
@@ -557,12 +557,12 @@ describe('AdminPanel Firebase Integration', () => {
       mockQuranContext.audioMappings = { '1:1': 'url1', '1:2': 'url2' };
       mockQuranContext.tafseerMappings = { '1:1': 'tafseer1' };
       mockQuranContext.customUrls = [{ id: '1', url: 'test' }];
-      useQuran.mockReturnValue(mockQuranContext);
+      useQuranData.mockReturnValue(mockQuranContext);
 
       renderAdminPanel();
 
       // Stats should be updated based on mappings
-      expect(useQuran).toHaveBeenCalled();
+      expect(useQuranData).toHaveBeenCalled();
     });
   });
 });

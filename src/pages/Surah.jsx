@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import * as FiIcons from 'react-icons/fi';
@@ -15,9 +15,11 @@ const Surah = () => {
   const [verses, setVerses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [surah, setSurah] = useState(null);
-
-  // DEBUG: Track component re-renders - should be much less now
-  console.log(`🔄 [Surah] Component re-rendered - verses: ${verses.length}`);
+  
+  // DEBUG: Track component re-renders with more detail
+  const renderCount = useRef(0);
+  renderCount.current++;
+  console.log(`🔄 [Surah] Component re-render #${renderCount.current} - surah: ${surahNumber}, verses: ${verses.length}`);
 
   // Scroll to specific ayah - memoized to prevent re-creation
   const scrollToAyah = useCallback((ayahNumber) => {
@@ -166,11 +168,11 @@ const Surah = () => {
       )}
 
         <div className="space-y-6" id="verses-container">
-          {verses.map((verse, index) => (
-            <div key={verse.verse_key} data-ayah={verse.verse_number}>
-              <AyahCard 
-                verse={verse} 
-                surahNumber={parseInt(surahNumber)} 
+          {verses.map((verse) => (
+            <div key={`ayah-${surahNumber}-${verse.verse_number}`} data-ayah={verse.verse_number}>
+              <AyahCard
+                verse={verse}
+                surahNumber={parseInt(surahNumber)}
                 index={0} // Remove staggered animation to improve performance
               />
             </div>

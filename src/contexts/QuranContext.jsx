@@ -28,6 +28,11 @@ export const useQuran = () => {
 };
 
 export const QuranProvider = ({ children }) => {
+  // DEBUG: Track provider re-renders
+  const renderCount = useRef(0);
+  renderCount.current++;
+  console.log(`🔄 [QuranProvider] Re-render #${renderCount.current}`);
+
   const { isAuthenticated } = useAuth();
   const [surahs, setSurahs] = useState([]);
   const [currentAudio, setCurrentAudio] = useState(null);
@@ -41,6 +46,16 @@ export const QuranProvider = ({ children }) => {
   const [lastPlayedPosition, setLastPlayedPosition] = useState(null);
   const audioRef = useRef(null);
   const savePositionTimeoutRef = useRef(null);
+
+  // DEBUG: Track state changes
+  useEffect(() => {
+    console.log(`📊 [QuranProvider] State changed:`, {
+      playingAyah,
+      isPaused,
+      currentAudio: !!currentAudio,
+      currentSurah: currentSurah?.name_simple
+    });
+  }, [playingAyah, isPaused, currentAudio, currentSurah]);
 
   // Load Quran chapters list from offline data
   useEffect(() => {
@@ -818,9 +833,11 @@ export const QuranProvider = ({ children }) => {
       },
       onplay: () => {
         console.log(`🎵 [QuranContext] Howler audio started playing`);
+        console.log(`🔄 [QuranContext] BEFORE state updates - playingAyah: ${playingAyah}, isPaused: ${isPaused}`);
         setPlayingAyah(ayahKey);
         setCurrentAudio(howl);
         setIsPaused(false);
+        console.log(`🔄 [QuranContext] AFTER state updates - will trigger re-render`);
       },
       onpause: () => {
         console.log(`🎵 [QuranContext] Howler audio paused`);
@@ -832,6 +849,7 @@ export const QuranProvider = ({ children }) => {
       },
       onend: () => {
         console.log(`🎵 [QuranContext] Howler audio ended`);
+        console.log(`🔄 [QuranContext] BEFORE onend state updates - playingAyah: ${playingAyah}`);
         
         // Lock scroll position for auto-play transition
         const scrollBeforeEnd = window.scrollY;
@@ -842,6 +860,7 @@ export const QuranProvider = ({ children }) => {
         setPlayingAyah(null);
         setCurrentAudio(null);
         setIsPaused(false);
+        console.log(`🔄 [QuranContext] AFTER onend state updates - will trigger re-render`);
         
         // Auto-play next ayah if enabled
         if (autoPlayNext) {
@@ -849,6 +868,7 @@ export const QuranProvider = ({ children }) => {
           if (currentSurahData && ayahNumber < currentSurahData.verses_count) {
             // Play next ayah after a short delay
             setTimeout(() => {
+              console.log(`🔄 [QuranContext] Auto-playing next ayah: ${surahNumber}:${ayahNumber + 1}`);
               playAudio(surahNumber, ayahNumber + 1, true);
             }, 500);
           }
@@ -876,13 +896,16 @@ export const QuranProvider = ({ children }) => {
   };
 
   const stopAudio = () => {
+    console.log(`🎵 [QuranContext] stopAudio called`);
     if (audioRef.current) {
+      console.log(`🔄 [QuranContext] BEFORE stop state updates`);
       audioRef.current.stop();
       audioRef.current.unload();
       audioRef.current = null;
       setCurrentAudio(null);
       setPlayingAyah(null);
       setIsPaused(false);
+      console.log(`🔄 [QuranContext] AFTER stop state updates - will trigger re-render`);
     }
   };
 
@@ -901,7 +924,40 @@ export const QuranProvider = ({ children }) => {
     }
   };
 
-  const value = {
+  // CRITICAL FIX: Memoize the context value to prevent unnecessary re-renders
+  const value = React.useMemo(() => {
+    console.log(`🔄 [QuranProvider] Creating new context value object`);
+    return {
+      surahs,
+      loading,
+      currentAudio,
+      playingAyah,
+      audioMappings,
+      tafseerMappings,
+      customUrls,
+      currentSurah,
+      isPaused,
+      lastPlayedPosition,
+      setCurrentSurah,
+      saveAudioMapping,
+      deleteAudioMapping,
+      saveTafseerMapping,
+      deleteTafseerMapping,
+      createCustomUrl,
+      updateCustomUrl,
+      deleteCustomUrl,
+      saveCustomUrl,
+      getCustomUrlById,
+      getAudioUrl,
+      getTafseer,
+      playAudio,
+      pauseAudio,
+      resumeAudio,
+      stopAudio,
+      fetchSurahVerses,
+      fetchCustomUrls
+    };
+  }, [
     surahs,
     loading,
     currentAudio,
@@ -912,6 +968,7 @@ export const QuranProvider = ({ children }) => {
     currentSurah,
     isPaused,
     lastPlayedPosition,
+    // Functions are stable (don't change), but include them for completeness
     setCurrentSurah,
     saveAudioMapping,
     deleteAudioMapping,
@@ -930,7 +987,7 @@ export const QuranProvider = ({ children }) => {
     stopAudio,
     fetchSurahVerses,
     fetchCustomUrls
-  };
+  ]);
 
   return <QuranContext.Provider value={value}>{children}</QuranContext.Provider>;
 };

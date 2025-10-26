@@ -8,7 +8,6 @@ import React, {
   useState
 } from 'react';
 import toast from 'react-hot-toast';
-import { useNavigate } from 'react-router-dom';
 import { db } from '../lib/firebase';
 import {
   addDoc,
@@ -80,7 +79,6 @@ export const useQuran = () => {
 };
 
 export const QuranProvider = ({ children }) => {
-  const navigate = useNavigate();
   const [surahs, setSurahs] = useState([]);
   const [currentAudio, setCurrentAudio] = useState(null);
   const [playingAyah, setPlayingAyah] = useState(null);
@@ -99,7 +97,6 @@ export const QuranProvider = ({ children }) => {
   const translationWarningRef = useRef(new Set());
   const supplementalAudioPhaseRef = useRef('primary');
   const pendingSupplementalUrlRef = useRef(null);
-  const resumeToastIdRef = useRef(null);
 
   const persistReadingPosition = useCallback((surahNumber, ayahNumber) => {
     const position = {
@@ -126,17 +123,6 @@ export const QuranProvider = ({ children }) => {
     const paddedAyah = String(ayahNumber).padStart(3, '0');
     return `https://nrq.no/wp-content/uploads/ayah/${paddedSurah}/${paddedSurah}-${paddedAyah}.mp3`;
   }, []);
-
-  const handleResumeToastClick = useCallback(
-    (surahNumber, ayahNumber) => {
-      navigate(`/surah/${surahNumber}?ayah=${ayahNumber}`);
-      if (resumeToastIdRef.current) {
-        toast.dismiss(resumeToastIdRef.current);
-        resumeToastIdRef.current = null;
-      }
-    },
-    [navigate]
-  );
 
   useEffect(() => {
     try {
@@ -1253,43 +1239,6 @@ export const QuranProvider = ({ children }) => {
       };
 
       setLastPlayedPosition(normalizedPosition);
-
-      const showNotification = () => {
-        if (surahs.length === 0) {
-          setTimeout(showNotification, 500);
-          return;
-        }
-
-        const surah = surahs.find((item) => item.id === position.surahNumber);
-        if (surah) {
-          const toastContent = (
-            <button
-              type="button"
-              onClick={() => handleResumeToastClick(normalizedPosition.surahNumber, normalizedPosition.ayahNumber)}
-              className="text-left"
-            >
-              <div className="font-semibold">Continue from where you left off</div>
-              <div className="text-sm opacity-90">
-                {surah.name_simple} ({surah.name_arabic}), Ayah {normalizedPosition.ayahNumber}
-              </div>
-              <div className="text-xs underline mt-2">Tap to resume</div>
-            </button>
-          );
-
-          const toastId = toast.custom(toastContent, {
-            duration: 6000,
-            position: 'top-right',
-            ariaProps: {
-              role: 'status',
-              'aria-live': 'polite'
-            }
-          });
-
-          resumeToastIdRef.current = toastId;
-        }
-      };
-
-      setTimeout(showNotification, 1000);
     } catch (error) {
       console.error('Error restoring reading position:', error);
       localStorage.removeItem('quran_reading_position');

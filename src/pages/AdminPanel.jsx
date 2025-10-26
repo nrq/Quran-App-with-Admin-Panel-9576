@@ -9,7 +9,7 @@ import { db } from '../lib/firebase';
 import { collection, writeBatch, doc, updateDoc, deleteDoc, query, where, getDocs } from 'firebase/firestore';
 import { handleFirebaseError, logFirebaseError } from '../utils/firebaseErrorHandler';
 
-const { FiLogOut, FiMusic, FiSave, FiPlay, FiSearch, FiBook, FiDatabase, FiRefreshCw, FiLink, FiEdit, FiExternalLink, FiPlus } = FiIcons;
+const { FiLogOut, FiMusic, FiSave, FiPlay, FiSearch, FiBook, FiDatabase, FiRefreshCw, FiLink, FiEdit, FiExternalLink, FiPlus, FiTrash2 } = FiIcons;
 
 const AdminPanel = () => {
   const { logout, user } = useAuth();
@@ -19,6 +19,7 @@ const AdminPanel = () => {
     tafseerMappings, 
     customUrls,
     saveAudioMapping, 
+    deleteAudioMapping,
     saveTafseerMapping,
     saveCustomUrl,
     fetchCustomUrls 
@@ -116,6 +117,37 @@ const AdminPanel = () => {
     audio.play().catch(() => {
       toast.error('Failed to play audio');
     });
+  };
+
+  const handleEditAudioMapping = (surahId, ayah, url) => {
+    setActiveTab('audio');
+    setSelectedSurah(String(surahId));
+    setAyahNumber(String(ayah));
+    setSelectedUrlId('');
+    setAudioUrl(url || '');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleDeleteAudioMapping = async (surahId, ayah) => {
+    const numericSurah = parseInt(surahId, 10);
+    const numericAyah = parseInt(ayah, 10);
+
+    if (!Number.isFinite(numericSurah) || !Number.isFinite(numericAyah)) {
+      toast.error('Invalid surah or ayah number');
+      return;
+    }
+
+    const confirmed = window.confirm(`Remove custom audio for Surah ${numericSurah}, Ayah ${numericAyah}?`);
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await deleteAudioMapping(numericSurah, numericAyah);
+    } catch (error) {
+      console.error('Failed to delete audio mapping:', error);
+      toast.error('Unable to delete mapping. Please try again.');
+    }
   };
 
   // Sync local storage data with Firebase
@@ -717,47 +749,71 @@ const AdminPanel = () => {
                         {surah.id}. {surah.name_simple}
                       </div>
                       <div className="space-y-1">
-                        {mappings.map(mapping => (
-                          <div key={mapping.ayah} className="text-sm text-islamic-600 bg-islamic-50 p-2 rounded flex items-center justify-between">
-                            <div>
-                              <span className="font-medium">Ayah {mapping.ayah}:</span> {activeTab === 'audio' 
-                                ? (
-                                  mapping.customUrl 
-                                    ? <span className="text-islamic-gold">Custom audio URL assigned</span> 
+                        {mappings.map(mapping => {
+                          const mappingUrl = mapping.customUrl || mapping.value || '';
+                          const isAudioTab = activeTab === 'audio';
+
+                          return (
+                            <div
+                              key={mapping.ayah}
+                              className="text-sm text-islamic-600 bg-islamic-50 p-2 rounded flex items-center justify-between"
+                            >
+                              <div>
+                                <span className="font-medium">Ayah {mapping.ayah}:</span>{' '}
+                                {isAudioTab
+                                  ? mappingUrl
+                                    ? <span className="text-islamic-gold">Custom audio URL assigned</span>
                                     : 'Default audio'
-                                )
-                                : `${mapping.value.substring(0, 50)}${mapping.value.length > 50 ? '...' : ''}`
-                              }
-                            </div>
-                            
-                            {activeTab === 'audio' && mapping.customUrl && (
-                              <div className="flex items-center space-x-2">
-                                <a 
-                                  href={mapping.customUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-islamic-gold hover:text-yellow-600"
-                                  title="Open audio URL"
-                                >
-                                  <SafeIcon icon={FiExternalLink} />
-                                </a>
-                                <button
-                                  onClick={() => {
-                                    const audio = new Audio(mapping.customUrl);
-                                    audio.play().catch(err => {
-                                      console.error(err);
-                                      toast.error('Failed to play audio');
-                                    });
-                                  }}
-                                  className="text-islamic-600 hover:text-islamic-800"
-                                  title="Play audio"
-                                >
-                                  <SafeIcon icon={FiPlay} />
-                                </button>
+                                  : `${mapping.value.substring(0, 50)}${mapping.value.length > 50 ? '...' : ''}`}
                               </div>
-                            )}
-                          </div>
-                        ))}
+
+                              {isAudioTab && (
+                                <div className="flex items-center space-x-2">
+                                  {mappingUrl && (
+                                    <>
+                                      <a
+                                        href={mappingUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-islamic-gold hover:text-yellow-600"
+                                        title="Open audio URL"
+                                      >
+                                        <SafeIcon icon={FiExternalLink} />
+                                      </a>
+                                      <button
+                                        onClick={() => {
+                                          const audio = new Audio(mappingUrl);
+                                          audio.play().catch(err => {
+                                            console.error(err);
+                                            toast.error('Failed to play audio');
+                                          });
+                                        }}
+                                        className="text-islamic-600 hover:text-islamic-800"
+                                        title="Play audio"
+                                      >
+                                        <SafeIcon icon={FiPlay} />
+                                      </button>
+                                    </>
+                                  )}
+                                  <button
+                                    onClick={() => handleEditAudioMapping(surah.id, mapping.ayah, mappingUrl)}
+                                    className="text-islamic-600 hover:text-islamic-800"
+                                    title="Edit mapping"
+                                  >
+                                    <SafeIcon icon={FiEdit} />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteAudioMapping(surah.id, mapping.ayah)}
+                                    className="text-rose-500 hover:text-rose-600"
+                                    title="Delete mapping"
+                                  >
+                                    <SafeIcon icon={FiTrash2} />
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   );

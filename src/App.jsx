@@ -9,6 +9,7 @@ import Surah from './pages/Surah';
 import AdminLogin from './pages/AdminLogin';
 import AdminPanel from './pages/AdminPanel';
 import ProtectedRoute from './components/ProtectedRoute';
+import Bookmarks from './pages/Bookmarks';
 import './App.css';
 
 function App() {
@@ -16,11 +17,12 @@ function App() {
     <AuthProvider>
       <QuranProvider>
         <Router>
-          <div className="min-h-screen bg-gradient-to-br from-islamic-50 to-islamic-100">
+          <div className="min-h-screen">
             <Routes>
               <Route path="/" element={<Layout />}>
                 <Route index element={<Home />} />
                 <Route path="/surah/:surahNumber" element={<Surah />} />
+                <Route path="/bookmarks" element={<Bookmarks />} />
               </Route>
               <Route path="/admin/login" element={<AdminLogin />} />
               <Route 

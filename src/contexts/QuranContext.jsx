@@ -23,6 +23,36 @@ import {
 } from 'firebase/firestore';
 import { handleFirebaseError, logFirebaseError } from '../utils/firebaseErrorHandler';
 
+const SUPPORTED_THEMES = ['green', 'red', 'blue', 'light', 'dark', 'sepia'];
+const DEFAULT_THEME = 'green';
+
+const LANGUAGE_CONFIG = {
+  English: {
+    code: 'en',
+    translationEdition: 'en.sahih',
+    label: 'Saheeh International'
+  },
+  Urdu: {
+    code: 'ur',
+    translationEdition: 'ur.jalandhry',
+    label: 'Fateh Muhammad Jalandhry'
+  },
+  French: {
+    code: 'fr',
+    translationEdition: 'fr.hamidullah',
+    label: 'Muhammad Hamidullah'
+  },
+  Norsk: {
+    code: 'no',
+    translationEdition: 'no.berg',
+    label: 'Einar Berg'
+  }
+};
+
+const DEFAULT_LANGUAGE = 'English';
+
+const buildTranslationStorageKey = (edition, surahNumber) => `quran_translation_${edition}_${surahNumber}`;
+
 const QuranDataContext = createContext(null);
 const QuranAudioContext = createContext(null);
 
@@ -59,10 +89,12 @@ export const QuranProvider = ({ children }) => {
   const [currentSurah, setCurrentSurah] = useState(null);
   const [isPaused, setIsPaused] = useState(false);
   const [lastPlayedPosition, setLastPlayedPosition] = useState(null);
-  const [theme, setTheme] = useState('green');
-  const [language, setLanguage] = useState('English');
+  const [theme, setTheme] = useState(DEFAULT_THEME);
+  const [language, setLanguage] = useState(DEFAULT_LANGUAGE);
   const [bookmarks, setBookmarks] = useState([]);
   const audioRef = useRef(null);
+  const translationsCacheRef = useRef({});
+  const translationWarningRef = useRef(new Set());
 
   const persistReadingPosition = useCallback((surahNumber, ayahNumber) => {
     const position = {
@@ -83,12 +115,12 @@ export const QuranProvider = ({ children }) => {
   useEffect(() => {
     try {
       const savedTheme = localStorage.getItem('quran_theme');
-      if (savedTheme) {
+      if (savedTheme && SUPPORTED_THEMES.includes(savedTheme)) {
         setTheme(savedTheme);
       }
 
       const savedLanguage = localStorage.getItem('quran_language');
-      if (savedLanguage) {
+      if (savedLanguage && LANGUAGE_CONFIG[savedLanguage]) {
         setLanguage(savedLanguage);
       }
 
@@ -108,23 +140,72 @@ export const QuranProvider = ({ children }) => {
     }
   }, []);
 
+  useEffect(() => {
+    if (typeof document === 'undefined') {
+      return;
+    }
+
+    const themeClass = `theme-${theme}`;
+    const { body } = document;
+    const existingThemeClasses = Array.from(body.classList).filter((className) =>
+      className.startsWith('theme-')
+    );
+
+    existingThemeClasses.forEach((className) => {
+      if (className !== themeClass) {
+        body.classList.remove(className);
+      }
+    });
+
+    body.classList.add(themeClass);
+  }, [theme]);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') {
+      return;
+    }
+
+    const languageMeta = LANGUAGE_CONFIG[language] || LANGUAGE_CONFIG[DEFAULT_LANGUAGE];
+    document.documentElement.setAttribute('lang', languageMeta.code);
+  }, [language]);
+
   const fetchCustomUrls = useCallback(async () => {
-  const setThemePreference = useCallback((value) => {
     try {
-      localStorage.setItem('quran_theme', value);
+      const customUrlsRef = collection(db, 'custom_urls');
+      const querySnapshot = await getDocs(customUrlsRef);
+      const urlsData = querySnapshot.docs.map((docSnapshot) => ({
+        id: docSnapshot.id,
+        ...docSnapshot.data()
+      }));
+      setCustomUrls(urlsData);
+    } catch (error) {
+      logFirebaseError('Fetch Custom URLs', error);
+    }
+  }, []);
+
+  const setThemePreference = useCallback((value) => {
+    const normalizedTheme = SUPPORTED_THEMES.includes(value) ? value : DEFAULT_THEME;
+
+    try {
+      localStorage.setItem('quran_theme', normalizedTheme);
     } catch (error) {
       console.error('Failed to persist theme preference:', error);
     }
-    setTheme(value);
+
+    setTheme(normalizedTheme);
   }, []);
 
   const setLanguagePreference = useCallback((value) => {
+    const normalizedLanguage = LANGUAGE_CONFIG[value] ? value : DEFAULT_LANGUAGE;
+
     try {
-      localStorage.setItem('quran_language', value);
+      localStorage.setItem('quran_language', normalizedLanguage);
     } catch (error) {
       console.error('Failed to persist language preference:', error);
     }
-    setLanguage(value);
+
+    translationWarningRef.current.delete(normalizedLanguage);
+    setLanguage(normalizedLanguage);
   }, []);
 
   const toggleBookmark = useCallback((surahNumber, ayahNumber) => {
@@ -211,17 +292,86 @@ export const QuranProvider = ({ children }) => {
 
     toast.success('Bookmark updated');
   }, []);
-    try {
-      const customUrlsRef = collection(db, 'custom_urls');
-      const querySnapshot = await getDocs(customUrlsRef);
-      const urlsData = querySnapshot.docs.map((docSnapshot) => ({
-        id: docSnapshot.id,
-        ...docSnapshot.data()
-      }));
-      setCustomUrls(urlsData);
-    } catch (error) {
-      logFirebaseError('Fetch Custom URLs', error);
-    }
+
+  const fetchTranslationForSurah = useCallback(async (languageKey, surahNumber) => {
+    const resolveTranslation = async (languageKeyToUse, allowFallback) => {
+      const languageMeta = LANGUAGE_CONFIG[languageKeyToUse] || LANGUAGE_CONFIG[DEFAULT_LANGUAGE];
+      const edition = languageMeta.translationEdition;
+      const cacheKey = `${edition}:${surahNumber}`;
+
+      if (translationsCacheRef.current[cacheKey]) {
+        return translationsCacheRef.current[cacheKey];
+      }
+
+      const storageKey = buildTranslationStorageKey(edition, surahNumber);
+
+      try {
+        const stored = localStorage.getItem(storageKey);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          translationsCacheRef.current[cacheKey] = parsed;
+          return parsed;
+        }
+      } catch (error) {
+        console.error('Failed to restore cached translation:', error);
+      }
+
+      try {
+        const response = await fetch(`https://api.alquran.cloud/v1/surah/${surahNumber}/${edition}`);
+        if (!response.ok) {
+          throw new Error(`Translation request failed with status ${response.status}`);
+        }
+
+        const payload = await response.json();
+        const ayahs = payload?.data?.ayahs;
+        if (!Array.isArray(ayahs) || ayahs.length === 0) {
+          throw new Error('Translation payload missing ayahs');
+        }
+
+        const translationName = payload?.data?.edition?.name || languageMeta.label;
+        const entries = ayahs.reduce((acc, ayah) => {
+          acc[ayah.numberInSurah] = ayah.text;
+          return acc;
+        }, {});
+
+        const normalized = {
+          edition,
+          languageKey: languageKeyToUse,
+          name: translationName,
+          entries
+        };
+
+        translationsCacheRef.current[cacheKey] = normalized;
+
+        try {
+          localStorage.setItem(storageKey, JSON.stringify(normalized));
+        } catch (storageError) {
+          console.error('Failed to persist translation cache:', storageError);
+        }
+
+        return normalized;
+      } catch (error) {
+        console.error(`Failed to fetch translation for ${languageKeyToUse}`, error);
+
+        if (!translationWarningRef.current.has(languageKeyToUse)) {
+          translationWarningRef.current.add(languageKeyToUse);
+
+          if (languageKeyToUse !== DEFAULT_LANGUAGE) {
+            toast.error(`Unable to load ${languageKeyToUse} translation. Falling back to English.`);
+          } else {
+            toast.error('Unable to load English translation at the moment.');
+          }
+        }
+
+        if (allowFallback && languageKeyToUse !== DEFAULT_LANGUAGE) {
+          return resolveTranslation(DEFAULT_LANGUAGE, false);
+        }
+
+        return null;
+      }
+    };
+
+    return resolveTranslation(languageKey, true);
   }, []);
 
   const fetchUpdatedAudioMapping = useCallback(async (surahNumber, ayahNumber) => {
@@ -686,7 +836,7 @@ export const QuranProvider = ({ children }) => {
 
       setPlayingAyah(ayahKey);
       setIsPaused(false);
-  persistReadingPosition(surahNumber, ayahNumber);
+    persistReadingPosition(surahNumber, ayahNumber);
 
       const handlePlaying = () => {
         toast.dismiss(loadingToastId);
@@ -766,13 +916,53 @@ export const QuranProvider = ({ children }) => {
   const fetchSurahVerses = useCallback(async (surahNumber) => {
     try {
       const { getSurahVerses } = await import('../data/quran-data.js');
-      return await getSurahVerses(surahNumber);
+      const baseVerses = await getSurahVerses(surahNumber);
+      const normalizedVerses = Array.isArray(baseVerses)
+        ? baseVerses.map((verse) => ({
+            ...verse,
+            translations: Array.isArray(verse.translations) ? [...verse.translations] : []
+          }))
+        : [];
+
+      if (normalizedVerses.length === 0) {
+        return normalizedVerses;
+      }
+
+      const translation = await fetchTranslationForSurah(language, Number(surahNumber));
+
+      if (!translation) {
+        return normalizedVerses;
+      }
+
+      return normalizedVerses.map((verse) => {
+        const translationText =
+          translation.entries?.[verse.verse_number] ?? translation.entries?.[String(verse.verse_number)];
+
+        if (!translationText) {
+          return {
+            ...verse,
+            translations: []
+          };
+        }
+
+        return {
+          ...verse,
+          translations: [
+            {
+              text: translationText,
+              language: translation.languageKey,
+              label: translation.name,
+              edition: translation.edition
+            }
+          ]
+        };
+      });
     } catch (error) {
       console.error('Error loading offline verses:', error);
       toast.error('Failed to load verses');
       return [];
     }
-  }, []);
+  }, [fetchTranslationForSurah, language]);
 
   useEffect(() => {
     const loadSurahs = async () => {

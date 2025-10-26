@@ -8,7 +8,7 @@ const { FiPlay, FiPause, FiBook } = FiIcons;
 
 const AyahCard = ({ verse, surahNumber }) => {
   const { playAudio, pauseAudio, resumeAudio, playingAyah, isPaused } = useQuranAudio();
-  const { getTafseer, bookmarks, toggleBookmark } = useQuranData();
+  const { getTafseer, bookmarks, toggleBookmark, language } = useQuranData();
   const [showTafseer, setShowTafseer] = useState(false);
 
   const ayahKey = `${surahNumber}:${verse.verse_number}`;
@@ -17,6 +17,8 @@ const AyahCard = ({ verse, surahNumber }) => {
   const isBookmarked = bookmarks.some(
     (bookmark) => bookmark.surahNumber === surahNumber && bookmark.ayahNumber === verse.verse_number
   );
+  const translationMeta = verse.translations && verse.translations[0] ? verse.translations[0] : null;
+  const translationLabel = translationMeta?.label || translationMeta?.language || language;
 
   const handlePlayAudio = () => {
     if (isPlaying && !isPaused) {
@@ -82,10 +84,12 @@ const AyahCard = ({ verse, surahNumber }) => {
           {verse.text_uthmani}
         </div>
 
-        {verse.translations && verse.translations[0] && (
+        {translationMeta && (
           <div className="english-text text-islamic-600 bg-islamic-50 p-4 rounded-lg">
-            <p className="text-sm font-medium text-islamic-500 mb-2">Translation:</p>
-            <p>{verse.translations[0].text}</p>
+            <p className="text-sm font-medium text-islamic-500 mb-2">
+              Translation{translationLabel ? ` (${translationLabel})` : ''}:
+            </p>
+            <p>{translationMeta.text}</p>
           </div>
         )}
 

@@ -63,6 +63,7 @@ const SettingsPanel = ({ isOpen, onClose }) => {
           />
 
           <motion.aside
+            id="settings-panel"
             className="fixed top-0 right-0 z-50 h-full w-full max-w-md bg-white shadow-2xl border-l border-slate-200 flex flex-col"
             initial={{ x: '100%' }}
             animate={{ x: 0 }}

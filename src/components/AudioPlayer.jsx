@@ -129,16 +129,18 @@ const AudioPlayer = ({ verses, surah, surahNumber, onScrollToAyah }) => {
             <SafeIcon icon={FiArrowUp} className="text-sm md:text-base" />
           </button>
 
-          <button
-            type="button"
-            onClick={handleScrollToAyah}
-            className="min-w-0 flex-1 flex items-center gap-2 md:gap-3 text-left text-white/90 hover:text-white"
-          >
-            <span className="whitespace-nowrap text-xs md:text-sm font-semibold">{surahReference}</span>
-            <span className="quran-text-pak text-xs md:text-lg truncate flex-1 text-right">{arabicPreview}</span>
-          </button>
+          <div className="min-w-0 flex-1 flex items-center gap-2 md:gap-3 text-left text-white/90">
+            <button
+              type="button"
+              onClick={handleScrollToAyah}
+              className="flex items-center gap-2 md:gap-3 hover:text-white"
+            >
+              <span className="whitespace-nowrap text-xs md:text-sm font-semibold">{surahReference}</span>
+            </button>
+            <span className="quran-text-pak text-xs md:text-lg truncate text-right flex-1">{arabicPreview}</span>
+          </div>
 
-          <div className="shrink-0 flex items-center gap-2 md:gap-3">
+          <div className="shrink-0 flex items-center gap-3 md:gap-4">
             <button
               type="button"
               onClick={handlePreviousAyah}

@@ -61,6 +61,22 @@ export const QuranProvider = ({ children }) => {
   const [lastPlayedPosition, setLastPlayedPosition] = useState(null);
   const audioRef = useRef(null);
 
+  const persistReadingPosition = useCallback((surahNumber, ayahNumber) => {
+    const position = {
+      surahNumber,
+      ayahNumber,
+      updatedAt: Date.now()
+    };
+
+    try {
+      localStorage.setItem('quran_reading_position', JSON.stringify(position));
+    } catch (error) {
+      console.error('Failed to persist reading position:', error);
+    }
+
+    setLastPlayedPosition(position);
+  }, []);
+
   const fetchCustomUrls = useCallback(async () => {
     try {
       const customUrlsRef = collection(db, 'custom_urls');
@@ -537,6 +553,7 @@ export const QuranProvider = ({ children }) => {
 
       setPlayingAyah(ayahKey);
       setIsPaused(false);
+  persistReadingPosition(surahNumber, ayahNumber);
 
       const handlePlaying = () => {
         toast.dismiss(loadingToastId);
@@ -610,7 +627,7 @@ export const QuranProvider = ({ children }) => {
         });
       }
     },
-    [destroyCurrentAudio, getAudioUrl, pauseAudio, playingAyah, resumeAudio, surahs]
+    [destroyCurrentAudio, getAudioUrl, pauseAudio, persistReadingPosition, playingAyah, resumeAudio, surahs]
   );
 
   const fetchSurahVerses = useCallback(async (surahNumber) => {
@@ -780,7 +797,13 @@ export const QuranProvider = ({ children }) => {
         return;
       }
 
-      setLastPlayedPosition(position);
+      const normalizedPosition = {
+        surahNumber: Number(position.surahNumber),
+        ayahNumber: Number(position.ayahNumber),
+        updatedAt: position.updatedAt || Date.now()
+      };
+
+      setLastPlayedPosition(normalizedPosition);
 
       const showNotification = () => {
         if (surahs.length === 0) {

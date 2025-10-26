@@ -7,7 +7,7 @@ git add .
 
 echo.
 echo Committing changes...
-git commit -m "bottom bar ui ux improvements osama codex"
+git commit -m "part2 osama codex"
 
 echo.
 echo Pushing to remote repository...

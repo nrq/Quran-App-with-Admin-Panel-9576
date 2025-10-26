@@ -88,14 +88,24 @@ const AudioPlayer = ({ verses, surah, surahNumber, onScrollToAyah }) => {
     onScrollToAyah(currentVerseNumber);
   }, [currentVerseNumber, onScrollToAyah]);
 
+  const stripArabicDiacritics = useCallback((text) => {
+    if (!text) {
+      return '';
+    }
+
+    const diacriticsRegex = /[\u0610-\u061A\u064B-\u065F\u06D6-\u06DC\u06DF-\u06E8\u06EA-\u06ED]/g;
+    return text.replace(diacriticsRegex, '');
+  }, []);
+
   const arabicPreview = useMemo(() => {
     if (!currentVerse?.text_uthmani) {
       return '';
     }
 
-    const words = currentVerse.text_uthmani.split(' ').filter(Boolean);
+    const cleaned = stripArabicDiacritics(currentVerse.text_uthmani);
+    const words = cleaned.split(/\s+/).filter(Boolean);
     return words.slice(0, 3).join(' ');
-  }, [currentVerse]);
+  }, [currentVerse, stripArabicDiacritics]);
 
   const surahReference = useMemo(() => {
     if (!surah || !currentVerse) {
@@ -109,54 +119,55 @@ const AudioPlayer = ({ verses, surah, surahNumber, onScrollToAyah }) => {
 
     return (
       <div className="max-w-6xl mx-auto px-3 py-1">
-        <div className="flex items-center space-x-3 mb-2">
+        <div className="flex items-center gap-2 md:gap-4 overflow-hidden">
           <button
             type="button"
             onClick={handleScrollToTop}
-            className="w-7 h-7 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30 transition-colors"
+            className="shrink-0 w-7 h-7 md:w-8 md:h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30 transition-colors"
             title="Scroll to top"
           >
-            <SafeIcon icon={FiArrowUp} className="text-sm" />
+            <SafeIcon icon={FiArrowUp} className="text-sm md:text-base" />
           </button>
+
           <button
             type="button"
             onClick={handleScrollToAyah}
-            className="flex-1 flex items-center justify-between text-left text-xs font-medium text-white/90 hover:text-white"
+            className="min-w-0 flex-1 flex items-center gap-2 md:gap-3 text-left text-white/90 hover:text-white"
           >
-            <span className="truncate pr-3">{surahReference}</span>
-            <span className="quran-text-pak text-xs truncate">{arabicPreview}</span>
-          </button>
-        </div>
-
-        <div className="flex items-center justify-center space-x-3">
-          <button
-            type="button"
-            onClick={handlePreviousAyah}
-            disabled={currentVerse.verse_number <= 1}
-            className="w-7 h-7 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <SafeIcon icon={FiArrowLeft} className="text-sm" />
+            <span className="whitespace-nowrap text-xs md:text-sm font-semibold">{surahReference}</span>
+            <span className="quran-text-pak text-xs md:text-lg truncate flex-1 text-right">{arabicPreview}</span>
           </button>
 
-          <button
-            type="button"
-            onClick={handlePlayPause}
-            className="w-9 h-9 bg-white bg-opacity-30 rounded-full flex items-center justify-center hover:bg-opacity-40 transition-colors"
-          >
-            <SafeIcon 
-              icon={isPaused ? FiPlay : FiPause} 
-              className="text-lg" 
-            />
-          </button>
+          <div className="shrink-0 flex items-center gap-2 md:gap-3">
+            <button
+              type="button"
+              onClick={handlePreviousAyah}
+              disabled={currentVerse.verse_number <= 1}
+              className="w-7 h-7 md:w-8 md:h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <SafeIcon icon={FiArrowLeft} className="text-sm md:text-base" />
+            </button>
 
-          <button
-            type="button"
-            onClick={handleNextAyah}
-            disabled={!surah || currentVerse.verse_number >= surah.verses_count}
-            className="w-7 h-7 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <SafeIcon icon={FiArrowLeft} className="text-sm rotate-180" />
-          </button>
+            <button
+              type="button"
+              onClick={handlePlayPause}
+              className="w-9 h-9 md:w-10 md:h-10 bg-white bg-opacity-30 rounded-full flex items-center justify-center hover:bg-opacity-40 transition-colors"
+            >
+              <SafeIcon
+                icon={isPaused ? FiPlay : FiPause}
+                className="text-lg md:text-xl"
+              />
+            </button>
+
+            <button
+              type="button"
+              onClick={handleNextAyah}
+              disabled={!surah || currentVerse.verse_number >= surah.verses_count}
+              className="w-7 h-7 md:w-8 md:h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <SafeIcon icon={FiArrowLeft} className="text-sm md:text-base rotate-180" />
+            </button>
+          </div>
         </div>
       </div>
     );

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion } from 'framer-motion';
 import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
@@ -7,10 +7,12 @@ import { useQuranAudio } from '../contexts/QuranContext';
 const { FiPlay, FiPause, FiArrowLeft, FiArrowUp } = FiIcons;
 
 const AudioPlayer = ({ verses, surah, surahNumber, onScrollToAyah }) => {
-  const { playingAyah, isPaused, playAudio, pauseAudio, resumeAudio } = useQuranAudio();
+  const { currentAudio, playingAyah, isPaused, playAudio, pauseAudio, resumeAudio } = useQuranAudio();
 
   const [isVisible, setIsVisible] = useState(false);
   const [currentVerse, setCurrentVerse] = useState(null);
+  const progressBarRef = useRef(null);
+  const animationFrameRef = useRef(null);
 
   // Memoize the current playing verse to prevent recalculation
   const getCurrentlyPlayingVerse = useCallback(() => {
@@ -114,6 +116,84 @@ const AudioPlayer = ({ verses, surah, surahNumber, onScrollToAyah }) => {
     return `${surah.id}:${currentVerse.verse_number}`;
   }, [surah, currentVerse]);
 
+  useEffect(() => {
+    const bar = progressBarRef.current;
+
+    if (!bar) {
+      return () => {};
+    }
+
+    const resetBar = () => {
+      bar.style.transform = 'scaleX(0)';
+    };
+
+    resetBar();
+
+    if (!currentAudio) {
+      return resetBar;
+    }
+
+    const updateProgress = () => {
+      if (!currentAudio || !bar) {
+        return;
+      }
+
+      const { currentTime, duration } = currentAudio;
+      if (!duration || Number.isNaN(duration) || duration === 0) {
+        animationFrameRef.current = requestAnimationFrame(updateProgress);
+        return;
+      }
+
+      const progress = Math.min(Math.max(currentTime / duration, 0), 1);
+      bar.style.transform = `scaleX(${progress})`;
+
+      animationFrameRef.current = requestAnimationFrame(updateProgress);
+    };
+
+    const stopTracking = () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+    };
+
+    const handlePlay = () => {
+      stopTracking();
+      updateProgress();
+    };
+
+    const handlePause = () => {
+      stopTracking();
+      updateProgress();
+    };
+
+    const handleEnded = () => {
+      stopTracking();
+      bar.style.transform = 'scaleX(1)';
+      requestAnimationFrame(() => {
+        resetBar();
+      });
+    };
+
+    currentAudio.addEventListener('play', handlePlay);
+    currentAudio.addEventListener('pause', handlePause);
+    currentAudio.addEventListener('ended', handleEnded);
+
+    if (!currentAudio.paused) {
+      handlePlay();
+    } else {
+      handlePause();
+    }
+
+    return () => {
+      stopTracking();
+      resetBar();
+      currentAudio.removeEventListener('play', handlePlay);
+      currentAudio.removeEventListener('pause', handlePause);
+      currentAudio.removeEventListener('ended', handleEnded);
+    };
+  }, [currentAudio]);
+
   const playerContent = useMemo(() => {
     if (!currentVerse) return null;
 
@@ -186,7 +266,14 @@ const AudioPlayer = ({ verses, surah, surahNumber, onScrollToAyah }) => {
       exit={{ opacity: 0, y: 100 }}
       className="fixed bottom-0 left-0 right-0 z-50 bg-gradient-to-r from-islamic-gold to-yellow-600 text-white shadow-lg border-t-2 border-yellow-700"
     >
-      {playerContent}
+      <div className="relative">
+        <div
+          ref={progressBarRef}
+          className="absolute left-0 right-0 top-0 h-1 origin-left scale-x-0 bg-emerald-400"
+          style={{ transform: 'scaleX(0)' }}
+        />
+        {playerContent}
+      </div>
     </motion.div>
   );
 };

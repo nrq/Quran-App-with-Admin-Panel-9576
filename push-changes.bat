@@ -7,7 +7,7 @@ git add .
 
 echo.
 echo Committing changes...
-git commit -m "UI: Remove home button and Admin text from navigation"
+git commit -m "bottom bar ui ux improvements osama codex"
 
 echo.
 echo Pushing to remote repository...

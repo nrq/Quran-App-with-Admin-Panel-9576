@@ -4,12 +4,11 @@ import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
 import { useQuranAudio } from '../contexts/QuranContext';
 
-const { FiPlay, FiPause, FiArrowLeft } = FiIcons;
+const { FiPlay, FiPause, FiArrowLeft, FiArrowUp } = FiIcons;
 
 const AudioPlayer = ({ verses, surah, surahNumber, onScrollToAyah }) => {
-  const { playingAyah, isPaused, playAudio, pauseAudio, resumeAudio, stopAudio } = useQuranAudio();
-  
-  // Local state to prevent re-renders
+  const { playingAyah, isPaused, playAudio, pauseAudio, resumeAudio } = useQuranAudio();
+
   const [isVisible, setIsVisible] = useState(false);
   const [currentVerse, setCurrentVerse] = useState(null);
 
@@ -26,11 +25,19 @@ const AudioPlayer = ({ verses, surah, surahNumber, onScrollToAyah }) => {
   // Update local state only when necessary
   useEffect(() => {
     const verse = getCurrentlyPlayingVerse();
-    setCurrentVerse(verse);
-    setIsVisible(!!verse);
-  }, [getCurrentlyPlayingVerse]);
 
-  // Memoize handlers to prevent re-creation
+    if (verse) {
+      setCurrentVerse(verse);
+      setIsVisible(true);
+      return;
+    }
+
+    if (!playingAyah) {
+      setCurrentVerse(null);
+      setIsVisible(false);
+    }
+  }, [getCurrentlyPlayingVerse, playingAyah]);
+
   const handlePlayPause = useCallback(() => {
     if (!currentVerse) return;
     
@@ -40,10 +47,6 @@ const AudioPlayer = ({ verses, surah, surahNumber, onScrollToAyah }) => {
       pauseAudio();
     }
   }, [currentVerse, isPaused, resumeAudio, pauseAudio]);
-
-  const handleStop = useCallback(() => {
-    stopAudio();
-  }, [stopAudio]);
 
   const handlePreviousAyah = useCallback(() => {
     if (!currentVerse || currentVerse.verse_number <= 1) return;
@@ -71,6 +74,10 @@ const AudioPlayer = ({ verses, surah, surahNumber, onScrollToAyah }) => {
     }
   }, [currentVerse, onScrollToAyah]);
 
+  const handleScrollToTop = useCallback(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
   const currentVerseNumber = currentVerse?.verse_number ?? null;
 
   useEffect(() => {
@@ -90,39 +97,37 @@ const AudioPlayer = ({ verses, surah, surahNumber, onScrollToAyah }) => {
     return words.slice(0, 3).join(' ');
   }, [currentVerse]);
 
-  // Memoize the component content to prevent unnecessary re-renders
+  const surahReference = useMemo(() => {
+    if (!surah || !currentVerse) {
+      return '';
+    }
+    return `${surah.id}:${currentVerse.verse_number}`;
+  }, [surah, currentVerse]);
+
   const playerContent = useMemo(() => {
     if (!currentVerse) return null;
 
     return (
       <div className="max-w-6xl mx-auto px-3 py-1">
-        {/* Compact Now Playing Info */}
-        <div className="flex items-center justify-between mb-1">
-          <div className="flex items-center space-x-2">
-            <div className="w-6 h-6 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
-              <SafeIcon 
-                icon={isPaused ? FiPlay : FiPause} 
-                className="text-xs animate-pulse" 
-              />
-            </div>
-            <div>
-              <button
-                type="button"
-                onClick={handleScrollToAyah}
-                className="text-xs font-medium hover:underline cursor-pointer"
-              >
-                {surah?.name_simple} - Ayah {currentVerse.verse_number}
-              </button>
-            </div>
-          </div>
-          <div className="text-right flex-1 ml-3">
-            <div className="quran-text-pak text-xs leading-relaxed">
-              {arabicPreview}
-            </div>
-          </div>
+        <div className="flex items-center space-x-3 mb-2">
+          <button
+            type="button"
+            onClick={handleScrollToTop}
+            className="w-7 h-7 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30 transition-colors"
+            title="Scroll to top"
+          >
+            <SafeIcon icon={FiArrowUp} className="text-sm" />
+          </button>
+          <button
+            type="button"
+            onClick={handleScrollToAyah}
+            className="flex-1 flex items-center justify-between text-left text-xs font-medium text-white/90 hover:text-white"
+          >
+            <span className="truncate pr-3">{surahReference}</span>
+            <span className="quran-text-pak text-xs truncate">{arabicPreview}</span>
+          </button>
         </div>
 
-        {/* Compact Audio Controls */}
         <div className="flex items-center justify-center space-x-3">
           <button
             type="button"
@@ -146,14 +151,6 @@ const AudioPlayer = ({ verses, surah, surahNumber, onScrollToAyah }) => {
 
           <button
             type="button"
-            onClick={handleStop}
-            className="w-7 h-7 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30 transition-colors"
-          >
-            <div className="w-2 h-2 bg-white rounded-sm"></div>
-          </button>
-
-          <button
-            type="button"
             onClick={handleNextAyah}
             disabled={!surah || currentVerse.verse_number >= surah.verses_count}
             className="w-7 h-7 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -163,7 +160,7 @@ const AudioPlayer = ({ verses, surah, surahNumber, onScrollToAyah }) => {
         </div>
       </div>
     );
-  }, [arabicPreview, currentVerse, isPaused, surah, handlePlayPause, handleStop, handlePreviousAyah, handleNextAyah, handleScrollToAyah]);
+  }, [arabicPreview, currentVerse, handleNextAyah, handlePlayPause, handlePreviousAyah, handleScrollToAyah, handleScrollToTop, isPaused, surahReference]);
 
   if (!isVisible) return null;
 

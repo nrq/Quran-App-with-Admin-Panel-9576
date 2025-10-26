@@ -535,9 +535,11 @@ export const QuranProvider = ({ children }) => {
       audio.preload = 'auto';
       audio.crossOrigin = 'anonymous';
 
+      setPlayingAyah(ayahKey);
+      setIsPaused(false);
+
       const handlePlaying = () => {
         toast.dismiss(loadingToastId);
-        setPlayingAyah(ayahKey);
         setIsPaused(false);
       };
 
@@ -551,6 +553,7 @@ export const QuranProvider = ({ children }) => {
         console.error('Audio playback error:', event);
         toast.dismiss(loadingToastId);
         toast.error('Failed to play audio. Please try another ayah.');
+        cleanupAudioListeners();
         setPlayingAyah(null);
         setIsPaused(false);
         setCurrentAudio(null);
@@ -558,23 +561,30 @@ export const QuranProvider = ({ children }) => {
       };
 
       const handleEnded = () => {
+        const currentSurahData = surahs.find((surah) => surah.id === surahNumber);
+        const shouldAutoAdvance =
+          autoPlayNext && currentSurahData && ayahNumber < currentSurahData.verses_count;
+
+        cleanupAudioListeners();
+
+        if (shouldAutoAdvance) {
+          destroyCurrentAudio();
+          playAudio(surahNumber, ayahNumber + 1, true);
+          return;
+        }
+
         setPlayingAyah(null);
         setCurrentAudio(null);
         setIsPaused(false);
         destroyCurrentAudio();
+      };
 
-        if (!autoPlayNext) {
-          return;
-        }
-
-        const currentSurahData = surahs.find((surah) => surah.id === surahNumber);
-        if (!currentSurahData || ayahNumber >= currentSurahData.verses_count) {
-          return;
-        }
-
-        setTimeout(() => {
-          playAudio(surahNumber, ayahNumber + 1, true);
-        }, 500);
+      const cleanupAudioListeners = () => {
+        audio.removeEventListener('playing', handlePlaying);
+        audio.removeEventListener('pause', handlePause);
+        audio.removeEventListener('ended', handleEnded);
+        audio.removeEventListener('error', handleError);
+        audio.removeEventListener('stalled', handleError);
       };
 
       audio.addEventListener('playing', handlePlaying);
@@ -592,6 +602,7 @@ export const QuranProvider = ({ children }) => {
           console.error('Audio play promise rejected:', error);
           toast.dismiss(loadingToastId);
           toast.error('Playback was interrupted. Please try again.');
+          cleanupAudioListeners();
           setPlayingAyah(null);
           setIsPaused(false);
           setCurrentAudio(null);

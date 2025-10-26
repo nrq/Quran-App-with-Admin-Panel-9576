@@ -7,7 +7,7 @@ git add .
 
 echo.
 echo Committing changes...
-git commit -m "https://iqra.nurulquran.com/ bookmarks, themes, language inshallah"
+git commit -m "chain play arabic and urdu tafseer inshallah"
 
 echo.
 echo Pushing to remote repository...

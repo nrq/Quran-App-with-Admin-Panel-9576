@@ -95,6 +95,8 @@ export const QuranProvider = ({ children }) => {
   const audioRef = useRef(null);
   const translationsCacheRef = useRef({});
   const translationWarningRef = useRef(new Set());
+  const supplementalAudioPhaseRef = useRef('primary');
+  const pendingSupplementalUrlRef = useRef(null);
 
   const persistReadingPosition = useCallback((surahNumber, ayahNumber) => {
     const position = {
@@ -110,6 +112,16 @@ export const QuranProvider = ({ children }) => {
     }
 
     setLastPlayedPosition(position);
+  }, []);
+
+  const getSupplementalAudioUrl = useCallback((surahNumber, ayahNumber) => {
+    if (surahNumber !== 1) {
+      return null;
+    }
+
+    const paddedSurah = String(surahNumber).padStart(3, '0');
+    const paddedAyah = String(ayahNumber).padStart(3, '0');
+    return `https://nrq.no/wp-content/uploads/ayah/${paddedSurah}/${paddedSurah}-${paddedAyah}.mp3`;
   }, []);
 
   useEffect(() => {
@@ -828,6 +840,7 @@ export const QuranProvider = ({ children }) => {
       destroyCurrentAudio();
 
       const audioUrl = getAudioUrl(surahNumber, ayahNumber);
+      const supplementalUrl = getSupplementalAudioUrl(surahNumber, ayahNumber);
       const loadingToastId = toast.loading('Loading audio...');
 
       const audio = new Audio(audioUrl);
@@ -836,7 +849,34 @@ export const QuranProvider = ({ children }) => {
 
       setPlayingAyah(ayahKey);
       setIsPaused(false);
-    persistReadingPosition(surahNumber, ayahNumber);
+      persistReadingPosition(surahNumber, ayahNumber);
+      supplementalAudioPhaseRef.current = 'primary';
+      pendingSupplementalUrlRef.current = supplementalUrl;
+
+      const advanceToNextOrStop = () => {
+        const currentSurahData = surahs.find((surah) => surah.id === surahNumber);
+        const shouldAutoAdvance =
+          autoPlayNext && currentSurahData && ayahNumber < currentSurahData.verses_count;
+
+        if (shouldAutoAdvance) {
+          destroyCurrentAudio();
+          playAudio(surahNumber, ayahNumber + 1, true);
+          return;
+        }
+
+        setPlayingAyah(null);
+        setCurrentAudio(null);
+        setIsPaused(false);
+        destroyCurrentAudio();
+      };
+
+      const cleanupAudioListeners = () => {
+        audio.removeEventListener('playing', handlePlaying);
+        audio.removeEventListener('pause', handlePause);
+        audio.removeEventListener('ended', handleEnded);
+        audio.removeEventListener('error', handleError);
+        audio.removeEventListener('stalled', handleError);
+      };
 
       const handlePlaying = () => {
         toast.dismiss(loadingToastId);
@@ -858,33 +898,95 @@ export const QuranProvider = ({ children }) => {
         setIsPaused(false);
         setCurrentAudio(null);
         destroyCurrentAudio();
+        pendingSupplementalUrlRef.current = null;
       };
 
-      const handleEnded = () => {
-        const currentSurahData = surahs.find((surah) => surah.id === surahNumber);
-        const shouldAutoAdvance =
-          autoPlayNext && currentSurahData && ayahNumber < currentSurahData.verses_count;
-
-        cleanupAudioListeners();
-
-        if (shouldAutoAdvance) {
-          destroyCurrentAudio();
-          playAudio(surahNumber, ayahNumber + 1, true);
+      const playSupplementalAudio = () => {
+        const supplementalAudioUrl = pendingSupplementalUrlRef.current;
+        if (!supplementalAudioUrl) {
+          advanceToNextOrStop();
           return;
         }
 
-        setPlayingAyah(null);
-        setCurrentAudio(null);
-        setIsPaused(false);
-        destroyCurrentAudio();
+        const supplementalToastId = toast.loading('Loading translation audio...');
+        const supplementalAudio = new Audio(supplementalAudioUrl);
+        supplementalAudio.preload = 'auto';
+        supplementalAudio.crossOrigin = 'anonymous';
+
+        supplementalAudioPhaseRef.current = 'supplemental';
+
+        const cleanupSupplementalListeners = () => {
+          supplementalAudio.removeEventListener('playing', handleSupplementalPlaying);
+          supplementalAudio.removeEventListener('pause', handleSupplementalPause);
+          supplementalAudio.removeEventListener('ended', handleSupplementalEnded);
+          supplementalAudio.removeEventListener('error', handleSupplementalError);
+          supplementalAudio.removeEventListener('stalled', handleSupplementalError);
+        };
+
+        const handleSupplementalPlaying = () => {
+          toast.dismiss(supplementalToastId);
+          setIsPaused(false);
+        };
+
+        const handleSupplementalPause = () => {
+          if (supplementalAudio.paused) {
+            setIsPaused(true);
+          }
+        };
+
+        const handleSupplementalError = (event) => {
+          console.error('Supplemental audio playback error:', event);
+          toast.dismiss(supplementalToastId);
+          toast.error('Failed to play translation audio.');
+          cleanupSupplementalListeners();
+          destroyCurrentAudio();
+          supplementalAudioPhaseRef.current = 'primary';
+          pendingSupplementalUrlRef.current = null;
+          advanceToNextOrStop();
+        };
+
+        const handleSupplementalEnded = () => {
+          cleanupSupplementalListeners();
+          pendingSupplementalUrlRef.current = null;
+          supplementalAudioPhaseRef.current = 'primary';
+          destroyCurrentAudio();
+          advanceToNextOrStop();
+        };
+
+        supplementalAudio.addEventListener('playing', handleSupplementalPlaying);
+        supplementalAudio.addEventListener('pause', handleSupplementalPause);
+        supplementalAudio.addEventListener('ended', handleSupplementalEnded);
+        supplementalAudio.addEventListener('error', handleSupplementalError);
+        supplementalAudio.addEventListener('stalled', handleSupplementalError);
+
+        audioRef.current = supplementalAudio;
+        setCurrentAudio(supplementalAudio);
+
+        const supplementalPlayPromise = supplementalAudio.play();
+        if (supplementalPlayPromise) {
+          supplementalPlayPromise.catch((error) => {
+            console.error('Supplemental audio play promise rejected:', error);
+            toast.dismiss(supplementalToastId);
+            toast.error('Translation playback was interrupted.');
+            cleanupSupplementalListeners();
+            destroyCurrentAudio();
+            supplementalAudioPhaseRef.current = 'primary';
+            pendingSupplementalUrlRef.current = null;
+            advanceToNextOrStop();
+          });
+        }
       };
 
-      const cleanupAudioListeners = () => {
-        audio.removeEventListener('playing', handlePlaying);
-        audio.removeEventListener('pause', handlePause);
-        audio.removeEventListener('ended', handleEnded);
-        audio.removeEventListener('error', handleError);
-        audio.removeEventListener('stalled', handleError);
+      const handleEnded = () => {
+        cleanupAudioListeners();
+        destroyCurrentAudio();
+
+        if (pendingSupplementalUrlRef.current && supplementalUrl) {
+          playSupplementalAudio();
+          return;
+        }
+
+        advanceToNextOrStop();
       };
 
       audio.addEventListener('playing', handlePlaying);
@@ -907,10 +1009,20 @@ export const QuranProvider = ({ children }) => {
           setIsPaused(false);
           setCurrentAudio(null);
           destroyCurrentAudio();
+          pendingSupplementalUrlRef.current = null;
         });
       }
     },
-    [destroyCurrentAudio, getAudioUrl, pauseAudio, persistReadingPosition, playingAyah, resumeAudio, surahs]
+    [
+      destroyCurrentAudio,
+      getAudioUrl,
+      getSupplementalAudioUrl,
+      pauseAudio,
+      persistReadingPosition,
+      playingAyah,
+      resumeAudio,
+      surahs
+    ]
   );
 
   const fetchSurahVerses = useCallback(async (surahNumber) => {

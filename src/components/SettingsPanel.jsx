@@ -2,12 +2,12 @@ import React, { useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import * as FiIcons from 'react-icons/fi';
+import { FaPalette } from 'react-icons/fa';
 import SafeIcon from '../common/SafeIcon';
 import { useQuranData } from '../contexts/QuranContext';
 
 const {
   FiX,
-  FiPalette,
   FiGlobe,
   FiBookmark,
   FiArrowRight,
@@ -88,7 +88,7 @@ const SettingsPanel = ({ isOpen, onClose }) => {
             <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
               <section>
                 <div className="flex items-center gap-2 mb-4">
-                  <SafeIcon icon={FiPalette} className="text-islamic-gold" />
+                  <SafeIcon icon={FaPalette} className="text-islamic-gold" />
                   <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">Theme</h3>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -99,7 +99,7 @@ const SettingsPanel = ({ isOpen, onClose }) => {
                         key={option}
                         type="button"
                         onClick={() => setThemePreference(option)}
-                        className={`px-4 py-2 rounded-lg border text-sm font-medium capitalize transition-colors ${
+                        className={`px-3 py-1.5 rounded-lg border text-xs font-semibold capitalize transition-colors ${
                           isActive
                             ? 'border-islamic-gold bg-islamic-50 text-islamic-gold'
                             : 'border-slate-200 text-slate-600 hover:border-islamic-gold/60'

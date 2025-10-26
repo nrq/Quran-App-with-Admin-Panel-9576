@@ -120,27 +120,25 @@ const AudioPlayer = ({ verses, surah, surahNumber, onScrollToAyah }) => {
     return (
       <div className="max-w-6xl mx-auto px-3 py-1">
         <div className="flex items-center gap-2 md:gap-4 overflow-hidden">
-          <button
-            type="button"
-            onClick={handleScrollToTop}
-            className="shrink-0 w-7 h-7 md:w-8 md:h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30 transition-colors"
-            title="Scroll to top"
-          >
-            <SafeIcon icon={FiArrowUp} className="text-sm md:text-base" />
-          </button>
-
-          <div className="min-w-0 flex-1 flex items-center gap-2 md:gap-3 text-left text-white/90">
+          <div className="flex items-center gap-2 md:gap-3 shrink-0 text-white/90">
+            <button
+              type="button"
+              onClick={handleScrollToTop}
+              className="w-7 h-7 md:w-8 md:h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30 transition-colors"
+              title="Scroll to top"
+            >
+              <SafeIcon icon={FiArrowUp} className="text-sm md:text-base" />
+            </button>
             <button
               type="button"
               onClick={handleScrollToAyah}
-              className="flex items-center gap-2 md:gap-3 hover:text-white"
+              className="text-xs md:text-sm font-semibold hover:text-white"
             >
-              <span className="whitespace-nowrap text-xs md:text-sm font-semibold">{surahReference}</span>
+              {surahReference}
             </button>
-            <span className="quran-text-pak text-xs md:text-lg truncate text-right flex-1">{arabicPreview}</span>
           </div>
 
-          <div className="shrink-0 flex items-center gap-3 md:gap-4">
+          <div className="flex items-center justify-center gap-3 md:gap-4 flex-1">
             <button
               type="button"
               onClick={handlePreviousAyah}
@@ -170,6 +168,10 @@ const AudioPlayer = ({ verses, surah, surahNumber, onScrollToAyah }) => {
               <SafeIcon icon={FiArrowLeft} className="text-sm md:text-base rotate-180" />
             </button>
           </div>
+
+          <span className="quran-text-pak text-xs md:text-lg truncate text-right min-w-0 overflow-hidden whitespace-nowrap">
+            {arabicPreview}
+          </span>
         </div>
       </div>
     );

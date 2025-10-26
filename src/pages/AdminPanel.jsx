@@ -21,6 +21,7 @@ const AdminPanel = () => {
     saveAudioMapping, 
     deleteAudioMapping,
     saveTafseerMapping,
+    deleteTafseerMapping,
     saveCustomUrl,
     fetchCustomUrls 
   } = useQuranData();
@@ -147,6 +148,36 @@ const AdminPanel = () => {
     } catch (error) {
       console.error('Failed to delete audio mapping:', error);
       toast.error('Unable to delete mapping. Please try again.');
+    }
+  };
+
+  const handleEditTafseerEntry = (surahId, ayah, text) => {
+    setActiveTab('tafseer');
+    setSelectedSurah(String(surahId));
+    setAyahNumber(String(ayah));
+    setTafseerText(text || '');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleDeleteTafseerEntry = async (surahId, ayah) => {
+    const numericSurah = parseInt(surahId, 10);
+    const numericAyah = parseInt(ayah, 10);
+
+    if (!Number.isFinite(numericSurah) || !Number.isFinite(numericAyah)) {
+      toast.error('Invalid surah or ayah number');
+      return;
+    }
+
+    const confirmed = window.confirm(`Delete tafseer for Surah ${numericSurah}, Ayah ${numericAyah}?`);
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await deleteTafseerMapping(numericSurah, numericAyah);
+    } catch (error) {
+      console.error('Failed to delete tafseer entry:', error);
+      toast.error('Unable to delete tafseer. Please try again.');
     }
   };
 
@@ -752,6 +783,10 @@ const AdminPanel = () => {
                         {mappings.map(mapping => {
                           const mappingUrl = mapping.customUrl || mapping.value || '';
                           const isAudioTab = activeTab === 'audio';
+                          const tafseerText = typeof mapping.value === 'string' ? mapping.value : '';
+                          const tafseerPreview = tafseerText.length > 80
+                            ? `${tafseerText.slice(0, 80)}...`
+                            : tafseerText;
 
                           return (
                             <div
@@ -764,10 +799,10 @@ const AdminPanel = () => {
                                   ? mappingUrl
                                     ? <span className="text-islamic-gold">Custom audio URL assigned</span>
                                     : 'Default audio'
-                                  : `${mapping.value.substring(0, 50)}${mapping.value.length > 50 ? '...' : ''}`}
+                                  : tafseerPreview || 'No tafseer stored'}
                               </div>
 
-                              {isAudioTab && (
+                              {isAudioTab ? (
                                 <div className="flex items-center space-x-2">
                                   {mappingUrl && (
                                     <>
@@ -806,6 +841,23 @@ const AdminPanel = () => {
                                     onClick={() => handleDeleteAudioMapping(surah.id, mapping.ayah)}
                                     className="text-rose-500 hover:text-rose-600"
                                     title="Delete mapping"
+                                  >
+                                    <SafeIcon icon={FiTrash2} />
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="flex items-center space-x-2">
+                                  <button
+                                    onClick={() => handleEditTafseerEntry(surah.id, mapping.ayah, tafseerText)}
+                                    className="text-islamic-600 hover:text-islamic-800"
+                                    title="Edit tafseer"
+                                  >
+                                    <SafeIcon icon={FiEdit} />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteTafseerEntry(surah.id, mapping.ayah)}
+                                    className="text-rose-500 hover:text-rose-600"
+                                    title="Delete tafseer"
                                   >
                                     <SafeIcon icon={FiTrash2} />
                                   </button>

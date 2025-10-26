@@ -4,7 +4,7 @@ import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
 import { useQuranAudio, useQuranData } from '../contexts/QuranContext';
 
-const { FiPlay, FiPause, FiVolume2, FiBook } = FiIcons;
+const { FiPlay, FiPause, FiBook } = FiIcons;
 
 const AyahCard = ({ verse, surahNumber }) => {
   const { playAudio, pauseAudio, resumeAudio, playingAyah, isPaused } = useQuranAudio();
@@ -54,11 +54,10 @@ const AyahCard = ({ verse, surahNumber }) => {
           <button
             type="button"
             onClick={handlePlayAudio}
-            className={`flex items-center space-x-2 bg-islamic-gold hover:bg-yellow-600 text-white px-4 py-2 rounded-lg transition-colors audio-button ${isPlaying && !isPaused ? 'playing-animation' : ''}`}
+            className={`flex items-center justify-center bg-islamic-gold hover:bg-yellow-600 text-white w-10 h-10 rounded-full transition-colors audio-button ${isPlaying && !isPaused ? 'playing-animation' : ''}`}
+            aria-label={isPlaying ? (isPaused ? 'Resume audio' : 'Pause audio') : 'Play audio'}
           >
-            <SafeIcon icon={isPlaying && !isPaused ? FiPause : FiPlay} className="text-sm" />
-            <SafeIcon icon={FiVolume2} className="text-sm" />
-            <span>{isPlaying && !isPaused ? 'Pause' : isPlaying && isPaused ? 'Resume' : 'Play'}</span>
+            <SafeIcon icon={isPlaying && !isPaused ? FiPause : FiPlay} className="text-base" />
           </button>
         </div>
       </div>

@@ -7,7 +7,6 @@ import SafeIcon from '../common/SafeIcon';
 import { useQuranData } from '../contexts/QuranContext';
 
 const {
-  FiX,
   FiGlobe,
   FiBookmark,
   FiArrowRight,
@@ -70,74 +69,7 @@ const SettingsPanel = ({ isOpen, onClose }) => {
             exit={{ x: '100%' }}
             transition={{ type: 'spring', stiffness: 260, damping: 24 }}
           >
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-              <div>
-                <h2 className="text-lg font-semibold text-slate-800">Settings</h2>
-                <p className="text-sm text-slate-500">Personalize your experience</p>
-              </div>
-              <button
-                type="button"
-                onClick={onClose}
-                className="p-2 rounded-full hover:bg-slate-100 transition-colors"
-                aria-label="Close settings"
-              >
-                <SafeIcon icon={FiX} className="text-slate-500" />
-              </button>
-            </div>
-
             <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
-              <section>
-                <div className="flex items-center gap-2 mb-4">
-                  <SafeIcon icon={FaPalette} className="text-islamic-gold" />
-                  <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">Theme</h3>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  {themeOptions.map((option) => {
-                    const isActive = theme === option;
-                    return (
-                      <button
-                        key={option}
-                        type="button"
-                        onClick={() => setThemePreference(option)}
-                        className={`px-3 py-1.5 rounded-lg border text-xs font-semibold capitalize transition-colors ${
-                          isActive
-                            ? 'border-islamic-gold bg-islamic-50 text-islamic-gold'
-                            : 'border-slate-200 text-slate-600 hover:border-islamic-gold/60'
-                        }`}
-                      >
-                        {option}
-                      </button>
-                    );
-                  })}
-                </div>
-              </section>
-
-              <section>
-                <div className="flex items-center gap-2 mb-4">
-                  <SafeIcon icon={FiGlobe} className="text-islamic-gold" />
-                  <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">Language</h3>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  {languageOptions.map((option) => {
-                    const isActive = language === option;
-                    return (
-                      <button
-                        key={option}
-                        type="button"
-                        onClick={() => setLanguagePreference(option)}
-                        className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                          isActive
-                            ? 'border-islamic-gold bg-islamic-50 text-islamic-gold'
-                            : 'border-slate-200 text-slate-600 hover:border-islamic-gold/60'
-                        }`}
-                      >
-                        {option}
-                      </button>
-                    );
-                  })}
-                </div>
-              </section>
-
               <section>
                 <div className="flex items-center gap-2 mb-4">
                   <SafeIcon icon={FiBookmark} className="text-islamic-gold" />
@@ -178,6 +110,78 @@ const SettingsPanel = ({ isOpen, onClose }) => {
                     )}
                   </div>
                 )}
+              </section>
+
+              <section>
+                <div className="grid grid-cols-3 gap-3 mb-4 items-center">
+                  <div className="flex items-center gap-2 col-span-2">
+                    <SafeIcon icon={FaPalette} className="text-islamic-gold" />
+                    <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">Theme</h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="text-xs font-semibold text-rose-600 hover:text-rose-700 justify-self-end"
+                    aria-label="Close settings"
+                  >
+                    Close ✕
+                  </button>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {themeOptions.map((option) => {
+                    const isActive = theme === option;
+                    const baseClasses = 'px-2.5 py-2 rounded-md text-xs font-semibold capitalize text-white transition-transform transform hover:-translate-y-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2';
+
+                    const optionColorClasses = {
+                      green: 'bg-emerald-500 hover:bg-emerald-600 focus-visible:ring-emerald-400',
+                      red: 'bg-rose-500 hover:bg-rose-600 focus-visible:ring-rose-400',
+                      blue: 'bg-sky-500 hover:bg-sky-600 focus-visible:ring-sky-400',
+                      light: 'bg-slate-300 text-slate-800 hover:bg-slate-400 focus-visible:ring-slate-300',
+                      dark: 'bg-slate-800 hover:bg-slate-700 focus-visible:ring-slate-600',
+                      sepia: 'bg-amber-600 hover:bg-amber-700 focus-visible:ring-amber-500'
+                    };
+
+                    const inactiveClasses = 'opacity-80';
+                    const activeClasses = 'ring-2 ring-offset-2 ring-white shadow-lg';
+
+                    return (
+                      <button
+                        key={option}
+                        type="button"
+                        onClick={() => setThemePreference(option)}
+                        className={`${baseClasses} ${optionColorClasses[option] || 'bg-slate-500 hover:bg-slate-600 focus-visible:ring-slate-400'} ${isActive ? activeClasses : inactiveClasses}`}
+                      >
+                        {option}
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+
+              <section>
+                <div className="flex items-center gap-2 mb-4">
+                  <SafeIcon icon={FiGlobe} className="text-islamic-gold" />
+                  <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">Language</h3>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {languageOptions.map((option) => {
+                    const isActive = language === option;
+                    return (
+                      <button
+                        key={option}
+                        type="button"
+                        onClick={() => setLanguagePreference(option)}
+                        className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                          isActive
+                            ? 'border-islamic-gold bg-islamic-50 text-islamic-gold'
+                            : 'border-slate-200 text-slate-600 hover:border-islamic-gold/60'
+                        }`}
+                      >
+                        {option}
+                      </button>
+                    );
+                  })}
+                </div>
               </section>
             </div>
 

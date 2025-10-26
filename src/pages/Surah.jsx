@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useParams, Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
@@ -11,12 +11,23 @@ const { FiArrowLeft, FiBook, FiMapPin } = FiIcons;
 
 const Surah = () => {
   const { surahNumber } = useParams();
+  const location = useLocation();
   const { surahs, fetchSurahVerses, setCurrentSurah } = useQuranData();
   const { playingAyah } = useQuranAudio();
   const [verses, setVerses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [surah, setSurah] = useState(null);
   const lastScrolledAyahRef = useRef(null);
+  const hasAppliedInitialScrollRef = useRef(false);
+
+  const initialAyahFromQuery = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    const ayahParam = Number(params.get('ayah'));
+    if (Number.isInteger(ayahParam) && ayahParam > 0) {
+      return ayahParam;
+    }
+    return null;
+  }, [location.search]);
 
   const scrollToAyah = useCallback((ayahNumber) => {
     const ayahElement = document.querySelector(`[data-ayah="${ayahNumber}"]`);
@@ -27,7 +38,14 @@ const Surah = () => {
 
   useEffect(() => {
     lastScrolledAyahRef.current = null;
+    hasAppliedInitialScrollRef.current = false;
   }, [surahNumber]);
+
+  useEffect(() => {
+    if (initialAyahFromQuery) {
+      hasAppliedInitialScrollRef.current = false;
+    }
+  }, [initialAyahFromQuery]);
 
   useEffect(() => {
     if (!playingAyah) {
@@ -49,9 +67,24 @@ const Surah = () => {
   }, [playingAyah, scrollToAyah, surahNumber]);
 
   useEffect(() => {
+    if (!initialAyahFromQuery || loading || verses.length === 0 || hasAppliedInitialScrollRef.current) {
+      return;
+    }
+
+    const ayahNumber = initialAyahFromQuery;
+    const timer = setTimeout(() => {
+      scrollToAyah(ayahNumber);
+      lastScrolledAyahRef.current = ayahNumber;
+      hasAppliedInitialScrollRef.current = true;
+    }, 150);
+
+    return () => clearTimeout(timer);
+  }, [initialAyahFromQuery, loading, scrollToAyah, verses.length]);
+
+  useEffect(() => {
     const loadSurah = async () => {
       setLoading(true);
-      const surahInfo = surahs.find((item) => item.id === parseInt(surahNumber, 10)) || null;
+  const surahInfo = surahs.find((item) => item.id === parseInt(surahNumber, 10)) || null;
       setSurah(surahInfo);
       setCurrentSurah(surahInfo);
 

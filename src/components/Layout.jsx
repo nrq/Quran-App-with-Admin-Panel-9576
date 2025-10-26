@@ -1,14 +1,18 @@
-import { Outlet, Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
 import { useQuranData } from '../contexts/QuranContext';
+import SettingsPanel from './SettingsPanel';
 
 const { FiBook, FiSettings, FiCornerDownRight } = FiIcons;
 
 const Layout = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { lastPlayedPosition } = useQuranData();
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const handleResumeLastAyah = () => {
     if (!lastPlayedPosition?.surahNumber || !lastPlayedPosition?.ayahNumber) {
@@ -17,6 +21,10 @@ const Layout = () => {
 
     navigate(`/surah/${lastPlayedPosition.surahNumber}?ayah=${lastPlayedPosition.ayahNumber}`);
   };
+
+  useEffect(() => {
+    setIsSettingsOpen(false);
+  }, [location.pathname, location.search]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-islamic-50 to-islamic-100">
@@ -42,12 +50,15 @@ const Layout = () => {
                 <span className="hidden sm:inline text-sm font-medium">Last Ayah</span>
               </button>
 
-              <Link 
-                to="/admin/login" 
+              <button
+                type="button"
+                onClick={() => setIsSettingsOpen(true)}
                 className="flex items-center space-x-2 px-4 py-2 rounded-lg text-islamic-700 hover:bg-islamic-100 transition-colors"
+                aria-expanded={isSettingsOpen}
+                aria-controls="settings-panel"
               >
                 <SafeIcon icon={FiSettings} className="text-lg" />
-              </Link>
+              </button>
             </div>
           </div>
         </div>
@@ -62,6 +73,8 @@ const Layout = () => {
           <Outlet />
         </motion.div>
       </main>
+
+      <SettingsPanel isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
     </div>
   );
 };

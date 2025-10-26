@@ -8,12 +8,15 @@ const { FiPlay, FiPause, FiBook } = FiIcons;
 
 const AyahCard = ({ verse, surahNumber }) => {
   const { playAudio, pauseAudio, resumeAudio, playingAyah, isPaused } = useQuranAudio();
-  const { getTafseer } = useQuranData();
+  const { getTafseer, bookmarks, toggleBookmark } = useQuranData();
   const [showTafseer, setShowTafseer] = useState(false);
 
   const ayahKey = `${surahNumber}:${verse.verse_number}`;
   const isPlaying = playingAyah === ayahKey;
   const tafseerText = getTafseer(surahNumber, verse.verse_number);
+  const isBookmarked = bookmarks.some(
+    (bookmark) => bookmark.surahNumber === surahNumber && bookmark.ayahNumber === verse.verse_number
+  );
 
   const handlePlayAudio = () => {
     if (isPlaying && !isPaused) {
@@ -29,6 +32,10 @@ const AyahCard = ({ verse, surahNumber }) => {
     playAudio(surahNumber, verse.verse_number);
   };
 
+  const handleToggleBookmark = () => {
+    toggleBookmark(surahNumber, verse.verse_number);
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -37,7 +44,15 @@ const AyahCard = ({ verse, surahNumber }) => {
       className={`ayah-card bg-white rounded-xl p-6 shadow-md ${isPlaying ? 'playing' : ''}`}
     >
       <div className="flex items-start justify-between mb-4">
-        <div className="verse-number">{verse.verse_number}</div>
+        <button
+          type="button"
+          onClick={handleToggleBookmark}
+          className={`verse-number ${isBookmarked ? 'bookmarked' : ''}`}
+          aria-pressed={isBookmarked}
+          title={isBookmarked ? 'Remove bookmark' : 'Add bookmark'}
+        >
+          {verse.verse_number}
+        </button>
 
         <div className="flex space-x-2">
           {tafseerText && (

@@ -59,6 +59,9 @@ export const QuranProvider = ({ children }) => {
   const [currentSurah, setCurrentSurah] = useState(null);
   const [isPaused, setIsPaused] = useState(false);
   const [lastPlayedPosition, setLastPlayedPosition] = useState(null);
+  const [theme, setTheme] = useState('green');
+  const [language, setLanguage] = useState('English');
+  const [bookmarks, setBookmarks] = useState([]);
   const audioRef = useRef(null);
 
   const persistReadingPosition = useCallback((surahNumber, ayahNumber) => {
@@ -77,7 +80,137 @@ export const QuranProvider = ({ children }) => {
     setLastPlayedPosition(position);
   }, []);
 
+  useEffect(() => {
+    try {
+      const savedTheme = localStorage.getItem('quran_theme');
+      if (savedTheme) {
+        setTheme(savedTheme);
+      }
+
+      const savedLanguage = localStorage.getItem('quran_language');
+      if (savedLanguage) {
+        setLanguage(savedLanguage);
+      }
+
+      const savedBookmarks = localStorage.getItem('quran_bookmarks');
+      if (savedBookmarks) {
+        const parsed = JSON.parse(savedBookmarks).map((bookmark) => ({
+          id: bookmark.id || `${bookmark.surahNumber}:${bookmark.ayahNumber}`,
+          surahNumber: Number(bookmark.surahNumber),
+          ayahNumber: Number(bookmark.ayahNumber),
+          note: bookmark.note || '',
+          createdAt: bookmark.createdAt || Date.now()
+        }));
+        setBookmarks(parsed);
+      }
+    } catch (error) {
+      console.error('Failed to restore preferences:', error);
+    }
+  }, []);
+
   const fetchCustomUrls = useCallback(async () => {
+  const setThemePreference = useCallback((value) => {
+    try {
+      localStorage.setItem('quran_theme', value);
+    } catch (error) {
+      console.error('Failed to persist theme preference:', error);
+    }
+    setTheme(value);
+  }, []);
+
+  const setLanguagePreference = useCallback((value) => {
+    try {
+      localStorage.setItem('quran_language', value);
+    } catch (error) {
+      console.error('Failed to persist language preference:', error);
+    }
+    setLanguage(value);
+  }, []);
+
+  const toggleBookmark = useCallback((surahNumber, ayahNumber) => {
+    if (!surahNumber || !ayahNumber) {
+      return;
+    }
+
+    let actionResult = 'added';
+
+    setBookmarks((prev) => {
+      const existingIndex = prev.findIndex(
+        (bookmark) => bookmark.surahNumber === surahNumber && bookmark.ayahNumber === ayahNumber
+      );
+
+      let nextBookmarks;
+      if (existingIndex !== -1) {
+        nextBookmarks = [...prev];
+        nextBookmarks.splice(existingIndex, 1);
+        actionResult = 'removed';
+      } else {
+        const newBookmark = {
+          id: `${surahNumber}:${ayahNumber}`,
+          surahNumber,
+          ayahNumber,
+          note: '',
+          createdAt: Date.now()
+        };
+        nextBookmarks = [newBookmark, ...prev];
+        actionResult = 'added';
+      }
+
+      try {
+        localStorage.setItem('quran_bookmarks', JSON.stringify(nextBookmarks));
+      } catch (error) {
+        console.error('Failed to persist bookmarks:', error);
+      }
+
+      return nextBookmarks;
+    });
+
+    toast.success(actionResult === 'added' ? 'Bookmark added' : 'Bookmark removed');
+  }, []);
+
+  const removeBookmark = useCallback((bookmarkId) => {
+    if (!bookmarkId) {
+      return;
+    }
+
+    setBookmarks((prev) => {
+      const nextBookmarks = prev.filter((bookmark) => bookmark.id !== bookmarkId);
+
+      try {
+        localStorage.setItem('quran_bookmarks', JSON.stringify(nextBookmarks));
+      } catch (error) {
+        console.error('Failed to persist bookmarks:', error);
+      }
+
+      return nextBookmarks;
+    });
+
+    toast.success('Bookmark removed');
+  }, []);
+
+  const updateBookmarkNote = useCallback((bookmarkId, note) => {
+    setBookmarks((prev) => {
+      const nextBookmarks = prev.map((bookmark) =>
+        bookmark.id === bookmarkId
+          ? {
+              ...bookmark,
+              note,
+              updatedAt: Date.now()
+            }
+          : bookmark
+      );
+
+      try {
+        localStorage.setItem('quran_bookmarks', JSON.stringify(nextBookmarks));
+      } catch (error) {
+        console.error('Failed to persist bookmarks:', error);
+      }
+
+      return nextBookmarks;
+    });
+
+    toast.success('Bookmark updated');
+  }, []);
     try {
       const customUrlsRef = collection(db, 'custom_urls');
       const querySnapshot = await getDocs(customUrlsRef);
@@ -836,6 +969,9 @@ export const QuranProvider = ({ children }) => {
       customUrls,
       currentSurah,
       lastPlayedPosition,
+      theme,
+      language,
+      bookmarks,
       setCurrentSurah,
       saveAudioMapping,
       deleteAudioMapping,
@@ -849,7 +985,12 @@ export const QuranProvider = ({ children }) => {
       getAudioUrl,
       getTafseer,
       fetchSurahVerses,
-      fetchCustomUrls
+      fetchCustomUrls,
+      setThemePreference,
+      setLanguagePreference,
+      toggleBookmark,
+      removeBookmark,
+      updateBookmarkNote
     }),
     [
       surahs,
@@ -859,6 +1000,9 @@ export const QuranProvider = ({ children }) => {
       customUrls,
       currentSurah,
       lastPlayedPosition,
+      theme,
+      language,
+      bookmarks,
       saveAudioMapping,
       deleteAudioMapping,
       saveTafseerMapping,
@@ -871,7 +1015,12 @@ export const QuranProvider = ({ children }) => {
       getAudioUrl,
       getTafseer,
       fetchSurahVerses,
-      fetchCustomUrls
+      fetchCustomUrls,
+      setThemePreference,
+      setLanguagePreference,
+      toggleBookmark,
+      removeBookmark,
+      updateBookmarkNote
     ]
   );
 

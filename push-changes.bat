@@ -7,7 +7,7 @@ git add .
 
 echo.
 echo Committing changes...
-git commit -m "chain play arabic and urdu tafseer inshallah"
+git commit -m "auto play all ayah dq2018,"
 
 echo.
 echo Pushing to remote repository...

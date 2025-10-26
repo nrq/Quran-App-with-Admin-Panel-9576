@@ -51,6 +51,8 @@ const LANGUAGE_CONFIG = {
 
 const DEFAULT_LANGUAGE = 'English';
 
+const AUDIO_PREFERENCES_STORAGE_KEY = 'quran_audio_preferences';
+
 const buildTranslationStorageKey = (edition, surahNumber) => `quran_translation_${edition}_${surahNumber}`;
 
 const QuranDataContext = createContext(null);
@@ -91,12 +93,28 @@ export const QuranProvider = ({ children }) => {
   const [lastPlayedPosition, setLastPlayedPosition] = useState(null);
   const [theme, setTheme] = useState(DEFAULT_THEME);
   const [language, setLanguage] = useState(DEFAULT_LANGUAGE);
+  const [enablePrimaryAudio, setEnablePrimaryAudio] = useState(true);
+  const [enableSupplementalAudio, setEnableSupplementalAudio] = useState(true);
   const [bookmarks, setBookmarks] = useState([]);
   const audioRef = useRef(null);
   const translationsCacheRef = useRef({});
   const translationWarningRef = useRef(new Set());
   const supplementalAudioPhaseRef = useRef('primary');
   const pendingSupplementalUrlRef = useRef(null);
+
+  const persistAudioPreferences = useCallback((primaryEnabled, supplementalEnabled) => {
+    try {
+      localStorage.setItem(
+        AUDIO_PREFERENCES_STORAGE_KEY,
+        JSON.stringify({
+          enablePrimaryAudio: Boolean(primaryEnabled),
+          enableSupplementalAudio: Boolean(supplementalEnabled)
+        })
+      );
+    } catch (error) {
+      console.error('Failed to persist audio preferences:', error);
+    }
+  }, []);
 
   const persistReadingPosition = useCallback((surahNumber, ayahNumber) => {
     const position = {
@@ -115,12 +133,21 @@ export const QuranProvider = ({ children }) => {
   }, []);
 
   const getSupplementalAudioUrl = useCallback((surahNumber, ayahNumber) => {
-    if (surahNumber !== 1) {
+    const normalizedSurah = Number(surahNumber);
+    const normalizedAyah = Number(ayahNumber);
+
+    if (
+      !Number.isInteger(normalizedSurah) ||
+      !Number.isInteger(normalizedAyah) ||
+      normalizedSurah < 1 ||
+      normalizedSurah > 114 ||
+      normalizedAyah < 1
+    ) {
       return null;
     }
 
-    const paddedSurah = String(surahNumber).padStart(3, '0');
-    const paddedAyah = String(ayahNumber).padStart(3, '0');
+    const paddedSurah = String(normalizedSurah).padStart(3, '0');
+    const paddedAyah = String(normalizedAyah).padStart(3, '0');
     return `https://nrq.no/wp-content/uploads/ayah/${paddedSurah}/${paddedSurah}-${paddedAyah}.mp3`;
   }, []);
 
@@ -146,6 +173,22 @@ export const QuranProvider = ({ children }) => {
           createdAt: bookmark.createdAt || Date.now()
         }));
         setBookmarks(parsed);
+      }
+
+      const savedAudioPrefs = localStorage.getItem(AUDIO_PREFERENCES_STORAGE_KEY);
+      if (savedAudioPrefs) {
+        try {
+          const parsed = JSON.parse(savedAudioPrefs);
+          if (typeof parsed.enablePrimaryAudio === 'boolean') {
+            setEnablePrimaryAudio(parsed.enablePrimaryAudio);
+          }
+          if (typeof parsed.enableSupplementalAudio === 'boolean') {
+            setEnableSupplementalAudio(parsed.enableSupplementalAudio);
+          }
+        } catch (preferencesError) {
+          console.error('Failed to parse audio preferences:', preferencesError);
+          localStorage.removeItem(AUDIO_PREFERENCES_STORAGE_KEY);
+        }
       }
     } catch (error) {
       console.error('Failed to restore preferences:', error);
@@ -219,6 +262,24 @@ export const QuranProvider = ({ children }) => {
     translationWarningRef.current.delete(normalizedLanguage);
     setLanguage(normalizedLanguage);
   }, []);
+
+  const setPrimaryAudioEnabled = useCallback(
+    (value) => {
+      const normalizedValue = Boolean(value);
+      setEnablePrimaryAudio(normalizedValue);
+      persistAudioPreferences(normalizedValue, enableSupplementalAudio);
+    },
+    [enableSupplementalAudio, persistAudioPreferences]
+  );
+
+  const setSupplementalAudioEnabled = useCallback(
+    (value) => {
+      const normalizedValue = Boolean(value);
+      setEnableSupplementalAudio(normalizedValue);
+      persistAudioPreferences(enablePrimaryAudio, normalizedValue);
+    },
+    [enablePrimaryAudio, persistAudioPreferences]
+  );
 
   const toggleBookmark = useCallback((surahNumber, ayahNumber) => {
     if (!surahNumber || !ayahNumber) {
@@ -827,6 +888,15 @@ export const QuranProvider = ({ children }) => {
   const playAudio = useCallback(
     (surahNumber, ayahNumber, autoPlayNext = true) => {
       const ayahKey = `${surahNumber}:${ayahNumber}`;
+      const shouldPlayPrimary = enablePrimaryAudio;
+      const supplementalUrl = enableSupplementalAudio
+        ? getSupplementalAudioUrl(surahNumber, ayahNumber)
+        : null;
+
+      if (!shouldPlayPrimary && !supplementalUrl) {
+        toast.error('Audio playback is disabled in settings.');
+        return;
+      }
 
       if (audioRef.current && playingAyah === ayahKey) {
         if (audioRef.current.paused) {
@@ -838,14 +908,6 @@ export const QuranProvider = ({ children }) => {
       }
 
       destroyCurrentAudio();
-
-      const audioUrl = getAudioUrl(surahNumber, ayahNumber);
-      const supplementalUrl = getSupplementalAudioUrl(surahNumber, ayahNumber);
-      const loadingToastId = toast.loading('Loading audio...');
-
-      const audio = new Audio(audioUrl);
-      audio.preload = 'auto';
-      audio.crossOrigin = 'anonymous';
 
       setPlayingAyah(ayahKey);
       setIsPaused(false);
@@ -870,45 +932,14 @@ export const QuranProvider = ({ children }) => {
         destroyCurrentAudio();
       };
 
-      const cleanupAudioListeners = () => {
-        audio.removeEventListener('playing', handlePlaying);
-        audio.removeEventListener('pause', handlePause);
-        audio.removeEventListener('ended', handleEnded);
-        audio.removeEventListener('error', handleError);
-        audio.removeEventListener('stalled', handleError);
-      };
-
-      const handlePlaying = () => {
-        toast.dismiss(loadingToastId);
-        setIsPaused(false);
-      };
-
-      const handlePause = () => {
-        if (audio.paused) {
-          setIsPaused(true);
-        }
-      };
-
-      const handleError = (event) => {
-        console.error('Audio playback error:', event);
-        toast.dismiss(loadingToastId);
-        toast.error('Failed to play audio. Please try another ayah.');
-        cleanupAudioListeners();
-        setPlayingAyah(null);
-        setIsPaused(false);
-        setCurrentAudio(null);
-        destroyCurrentAudio();
-        pendingSupplementalUrlRef.current = null;
-      };
-
-      const playSupplementalAudio = () => {
+      const playSupplementalAudio = (directPlayback = false) => {
         const supplementalAudioUrl = pendingSupplementalUrlRef.current;
         if (!supplementalAudioUrl) {
           advanceToNextOrStop();
           return;
         }
 
-        const supplementalToastId = toast.loading('Loading translation audio...');
+        const supplementalToastId = toast.loading(directPlayback ? 'Loading audio...' : 'Loading translation audio...');
         const supplementalAudio = new Audio(supplementalAudioUrl);
         supplementalAudio.preload = 'auto';
         supplementalAudio.crossOrigin = 'anonymous';
@@ -977,6 +1008,48 @@ export const QuranProvider = ({ children }) => {
         }
       };
 
+      if (!shouldPlayPrimary) {
+        playSupplementalAudio(true);
+        return;
+      }
+
+      const audioUrl = getAudioUrl(surahNumber, ayahNumber);
+      const loadingToastId = toast.loading('Loading audio...');
+      const audio = new Audio(audioUrl);
+      audio.preload = 'auto';
+      audio.crossOrigin = 'anonymous';
+
+      const cleanupAudioListeners = () => {
+        audio.removeEventListener('playing', handlePlaying);
+        audio.removeEventListener('pause', handlePause);
+        audio.removeEventListener('ended', handleEnded);
+        audio.removeEventListener('error', handleError);
+        audio.removeEventListener('stalled', handleError);
+      };
+
+      const handlePlaying = () => {
+        toast.dismiss(loadingToastId);
+        setIsPaused(false);
+      };
+
+      const handlePause = () => {
+        if (audio.paused) {
+          setIsPaused(true);
+        }
+      };
+
+      const handleError = (event) => {
+        console.error('Audio playback error:', event);
+        toast.dismiss(loadingToastId);
+        toast.error('Failed to play audio. Please try another ayah.');
+        cleanupAudioListeners();
+        setPlayingAyah(null);
+        setIsPaused(false);
+        setCurrentAudio(null);
+        destroyCurrentAudio();
+        pendingSupplementalUrlRef.current = null;
+      };
+
       const handleEnded = () => {
         cleanupAudioListeners();
         destroyCurrentAudio();
@@ -1015,6 +1088,8 @@ export const QuranProvider = ({ children }) => {
     },
     [
       destroyCurrentAudio,
+      enablePrimaryAudio,
+      enableSupplementalAudio,
       getAudioUrl,
       getSupplementalAudioUrl,
       pauseAudio,
@@ -1075,6 +1150,19 @@ export const QuranProvider = ({ children }) => {
       return [];
     }
   }, [fetchTranslationForSurah, language]);
+
+  useEffect(() => {
+    if (!audioRef.current) {
+      return;
+    }
+
+    const inPrimaryPhase = supplementalAudioPhaseRef.current === 'primary';
+    const inSupplementalPhase = supplementalAudioPhaseRef.current === 'supplemental';
+
+    if ((!enablePrimaryAudio && inPrimaryPhase) || (!enableSupplementalAudio && inSupplementalPhase)) {
+      stopAudio();
+    }
+  }, [enablePrimaryAudio, enableSupplementalAudio, stopAudio]);
 
   useEffect(() => {
     const loadSurahs = async () => {
@@ -1256,6 +1344,8 @@ export const QuranProvider = ({ children }) => {
       lastPlayedPosition,
       theme,
       language,
+    enablePrimaryAudio,
+    enableSupplementalAudio,
       bookmarks,
       setCurrentSurah,
       saveAudioMapping,
@@ -1273,6 +1363,8 @@ export const QuranProvider = ({ children }) => {
       fetchCustomUrls,
       setThemePreference,
       setLanguagePreference,
+    setPrimaryAudioEnabled,
+    setSupplementalAudioEnabled,
       toggleBookmark,
       removeBookmark,
       updateBookmarkNote
@@ -1287,6 +1379,8 @@ export const QuranProvider = ({ children }) => {
       lastPlayedPosition,
       theme,
       language,
+    enablePrimaryAudio,
+    enableSupplementalAudio,
       bookmarks,
       saveAudioMapping,
       deleteAudioMapping,
@@ -1303,6 +1397,8 @@ export const QuranProvider = ({ children }) => {
       fetchCustomUrls,
       setThemePreference,
       setLanguagePreference,
+      setPrimaryAudioEnabled,
+      setSupplementalAudioEnabled,
       toggleBookmark,
       removeBookmark,
       updateBookmarkNote

@@ -11,7 +11,9 @@ const {
   FiBookmark,
   FiArrowRight,
   FiHome,
-  FiExternalLink
+  FiExternalLink,
+  FiVolume2,
+  FiHeadphones
 } = FiIcons;
 
 const themeOptions = ['green', 'red', 'blue', 'light', 'dark', 'sepia'];
@@ -24,7 +26,11 @@ const SettingsPanel = ({ isOpen, onClose }) => {
     language,
     bookmarks,
     setThemePreference,
-    setLanguagePreference
+    setLanguagePreference,
+    enablePrimaryAudio,
+    enableSupplementalAudio,
+    setPrimaryAudioEnabled,
+    setSupplementalAudioEnabled
   } = useQuranData();
 
   const topBookmarks = useMemo(() => bookmarks.slice(0, 3), [bookmarks]);
@@ -181,6 +187,80 @@ const SettingsPanel = ({ isOpen, onClose }) => {
                       </button>
                     );
                   })}
+                </div>
+              </section>
+
+              <section>
+                <div className="flex items-center gap-2 mb-4">
+                  <SafeIcon icon={FiVolume2} className="text-islamic-gold" />
+                  <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">Audio Options</h3>
+                </div>
+                <div className="space-y-3">
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={enablePrimaryAudio}
+                    onClick={() => setPrimaryAudioEnabled(!enablePrimaryAudio)}
+                    className={`w-full flex items-center justify-between gap-4 rounded-lg border px-4 py-3 transition-colors ${
+                      enablePrimaryAudio
+                        ? 'border-islamic-gold bg-islamic-50'
+                        : 'border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 text-left">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-islamic-gold/10">
+                        <SafeIcon icon={FiHeadphones} className="text-lg text-islamic-gold" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-slate-700">Afasy Recitation</p>
+                        <p className="text-xs text-slate-500">Toggle the primary Alafasy recitation audio.</p>
+                      </div>
+                    </div>
+                    <span
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        enablePrimaryAudio ? 'bg-islamic-gold' : 'bg-slate-300'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                          enablePrimaryAudio ? 'translate-x-5' : 'translate-x-1'
+                        }`}
+                      />
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={enableSupplementalAudio}
+                    onClick={() => setSupplementalAudioEnabled(!enableSupplementalAudio)}
+                    className={`w-full flex items-center justify-between gap-4 rounded-lg border px-4 py-3 transition-colors ${
+                      enableSupplementalAudio
+                        ? 'border-islamic-gold bg-islamic-50'
+                        : 'border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 text-left">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-islamic-gold/10">
+                        <SafeIcon icon={FiVolume2} className="text-lg text-islamic-gold" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-slate-700">Custom Translation Audio</p>
+                        <p className="text-xs text-slate-500">Toggle the supplemental translation playback.</p>
+                      </div>
+                    </div>
+                    <span
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        enableSupplementalAudio ? 'bg-islamic-gold' : 'bg-slate-300'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                          enableSupplementalAudio ? 'translate-x-5' : 'translate-x-1'
+                        }`}
+                      />
+                    </span>
+                  </button>
                 </div>
               </section>
             </div>

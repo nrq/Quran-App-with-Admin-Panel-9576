@@ -11,8 +11,10 @@ const AudioPlayer = ({ verses, surah, surahNumber, onScrollToAyah }) => {
 
   const [isVisible, setIsVisible] = useState(false);
   const [currentVerse, setCurrentVerse] = useState(null);
+  const progressContainerRef = useRef(null);
   const progressBarRef = useRef(null);
   const animationFrameRef = useRef(null);
+  const isScrubbingRef = useRef(false);
 
   // Memoize the current playing verse to prevent recalculation
   const getCurrentlyPlayingVerse = useCallback(() => {
@@ -127,10 +129,21 @@ const AudioPlayer = ({ verses, surah, surahNumber, onScrollToAyah }) => {
       bar.style.transform = 'scaleX(0)';
     };
 
+    const stopTracking = () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+    };
+
     resetBar();
+    stopTracking();
 
     if (!currentAudio) {
-      return resetBar;
+      return () => {
+        stopTracking();
+        resetBar();
+      };
     }
 
     const updateProgress = () => {
@@ -138,22 +151,20 @@ const AudioPlayer = ({ verses, surah, surahNumber, onScrollToAyah }) => {
         return;
       }
 
-      const { currentTime, duration } = currentAudio;
+      const { currentTime, duration, paused } = currentAudio;
       if (!duration || Number.isNaN(duration) || duration === 0) {
         animationFrameRef.current = requestAnimationFrame(updateProgress);
         return;
       }
 
       const progress = Math.min(Math.max(currentTime / duration, 0), 1);
-      bar.style.transform = `scaleX(${progress})`;
 
-      animationFrameRef.current = requestAnimationFrame(updateProgress);
-    };
+      if (!isScrubbingRef.current) {
+        bar.style.transform = `scaleX(${progress})`;
+      }
 
-    const stopTracking = () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-        animationFrameRef.current = null;
+      if (!paused || isScrubbingRef.current) {
+        animationFrameRef.current = requestAnimationFrame(updateProgress);
       }
     };
 
@@ -163,6 +174,11 @@ const AudioPlayer = ({ verses, surah, surahNumber, onScrollToAyah }) => {
     };
 
     const handlePause = () => {
+      stopTracking();
+      updateProgress();
+    };
+
+    const handleSeeked = () => {
       stopTracking();
       updateProgress();
     };
@@ -177,6 +193,7 @@ const AudioPlayer = ({ verses, surah, surahNumber, onScrollToAyah }) => {
 
     currentAudio.addEventListener('play', handlePlay);
     currentAudio.addEventListener('pause', handlePause);
+    currentAudio.addEventListener('seeked', handleSeeked);
     currentAudio.addEventListener('ended', handleEnded);
 
     if (!currentAudio.paused) {
@@ -190,7 +207,103 @@ const AudioPlayer = ({ verses, surah, surahNumber, onScrollToAyah }) => {
       resetBar();
       currentAudio.removeEventListener('play', handlePlay);
       currentAudio.removeEventListener('pause', handlePause);
+      currentAudio.removeEventListener('seeked', handleSeeked);
       currentAudio.removeEventListener('ended', handleEnded);
+    };
+  }, [currentAudio]);
+
+  useEffect(() => {
+    const container = progressContainerRef.current;
+    const bar = progressBarRef.current;
+
+    if (!container || !bar) {
+      return () => {};
+    }
+
+    const cancelAnimationLoop = () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+    };
+
+    const getFractionFromClientX = (clientX) => {
+      const rect = container.getBoundingClientRect();
+      if (!rect.width) {
+        return 0;
+      }
+      const ratio = (clientX - rect.left) / rect.width;
+      return Math.min(Math.max(ratio, 0), 1);
+    };
+
+    const applyFraction = (fraction) => {
+      bar.style.transform = `scaleX(${fraction})`;
+      if (
+        currentAudio &&
+        currentAudio.duration &&
+        !Number.isNaN(currentAudio.duration) &&
+        currentAudio.duration !== Infinity
+      ) {
+        currentAudio.currentTime = fraction * currentAudio.duration;
+      }
+    };
+
+    const handlePointerMove = (event) => {
+      if (!isScrubbingRef.current) {
+        return;
+      }
+      event.preventDefault();
+      const fraction = getFractionFromClientX(event.clientX);
+      applyFraction(fraction);
+    };
+
+    const handlePointerUp = (event) => {
+      if (!isScrubbingRef.current) {
+        return;
+      }
+      event.preventDefault();
+      isScrubbingRef.current = false;
+      container.classList.remove('cursor-grabbing');
+      try {
+        container.releasePointerCapture(event.pointerId);
+      } catch (releaseError) {
+        // Pointer capture might not be supported; ignore
+      }
+      const fraction = getFractionFromClientX(event.clientX);
+      applyFraction(fraction);
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+    };
+
+    const handlePointerDown = (event) => {
+      if (!currentAudio) {
+        return;
+      }
+      event.preventDefault();
+      cancelAnimationLoop();
+      isScrubbingRef.current = true;
+      container.classList.add('cursor-grabbing');
+      try {
+        container.setPointerCapture(event.pointerId);
+      } catch (captureError) {
+        // Pointer capture might not be supported; ignore
+      }
+      const fraction = getFractionFromClientX(event.clientX);
+      applyFraction(fraction);
+      window.addEventListener('pointermove', handlePointerMove);
+      window.addEventListener('pointerup', handlePointerUp);
+      window.addEventListener('pointercancel', handlePointerUp);
+    };
+
+    container.addEventListener('pointerdown', handlePointerDown);
+
+    return () => {
+      container.removeEventListener('pointerdown', handlePointerDown);
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+      isScrubbingRef.current = false;
+      container.classList.remove('cursor-grabbing');
     };
   }, [currentAudio]);
 
@@ -198,7 +311,7 @@ const AudioPlayer = ({ verses, surah, surahNumber, onScrollToAyah }) => {
     if (!currentVerse) return null;
 
     return (
-      <div className="max-w-6xl mx-auto px-3 py-1">
+      <div className="max-w-6xl mx-auto px-3 pt-5 pb-2">
         <div className="flex items-center gap-2 md:gap-4 overflow-hidden">
           <div className="flex items-center gap-2 md:gap-3 shrink-0 text-white/90">
             <button
@@ -268,10 +381,16 @@ const AudioPlayer = ({ verses, surah, surahNumber, onScrollToAyah }) => {
     >
       <div className="relative">
         <div
-          ref={progressBarRef}
-          className="absolute left-0 right-0 top-0 h-1 origin-left scale-x-0 bg-emerald-400"
-          style={{ transform: 'scaleX(0)' }}
-        />
+          ref={progressContainerRef}
+          className="absolute left-0 right-0 top-0 z-10 h-5 cursor-grab select-none touch-none"
+        >
+          <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-[0.15rem] rounded-full bg-emerald-100" />
+          <div
+            ref={progressBarRef}
+            className="absolute left-0 top-1/2 -translate-y-1/2 h-[0.15rem] w-full rounded-full bg-emerald-400 origin-left"
+            style={{ transform: 'scaleX(0)' }}
+          />
+        </div>
         {playerContent}
       </div>
     </motion.div>

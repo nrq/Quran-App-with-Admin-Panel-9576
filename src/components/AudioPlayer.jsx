@@ -50,14 +50,20 @@ const AudioPlayer = ({ verses, surah, surahNumber, onScrollToAyah }) => {
     
     const prevAyahNumber = currentVerse.verse_number - 1;
     playAudio(parseInt(surahNumber), prevAyahNumber);
-  }, [currentVerse, surahNumber, playAudio]);
+    if (onScrollToAyah) {
+      onScrollToAyah(prevAyahNumber);
+    }
+  }, [currentVerse, surahNumber, playAudio, onScrollToAyah]);
 
   const handleNextAyah = useCallback(() => {
     if (!currentVerse || !surah || currentVerse.verse_number >= surah.verses_count) return;
     
     const nextAyahNumber = currentVerse.verse_number + 1;
     playAudio(parseInt(surahNumber), nextAyahNumber);
-  }, [currentVerse, surah, surahNumber, playAudio]);
+    if (onScrollToAyah) {
+      onScrollToAyah(nextAyahNumber);
+    }
+  }, [currentVerse, surah, surahNumber, playAudio, onScrollToAyah]);
 
   const handleScrollToAyah = useCallback(() => {
     if (currentVerse && onScrollToAyah) {
@@ -65,14 +71,33 @@ const AudioPlayer = ({ verses, surah, surahNumber, onScrollToAyah }) => {
     }
   }, [currentVerse, onScrollToAyah]);
 
+  const currentVerseNumber = currentVerse?.verse_number ?? null;
+
+  useEffect(() => {
+    if (!currentVerseNumber || !onScrollToAyah) {
+      return;
+    }
+
+    onScrollToAyah(currentVerseNumber);
+  }, [currentVerseNumber, onScrollToAyah]);
+
+  const arabicPreview = useMemo(() => {
+    if (!currentVerse?.text_uthmani) {
+      return '';
+    }
+
+    const words = currentVerse.text_uthmani.split(' ').filter(Boolean);
+    return words.slice(0, 3).join(' ');
+  }, [currentVerse]);
+
   // Memoize the component content to prevent unnecessary re-renders
   const playerContent = useMemo(() => {
     if (!currentVerse) return null;
 
     return (
-      <div className="max-w-6xl mx-auto px-3 py-2">
+      <div className="max-w-6xl mx-auto px-3 py-1">
         {/* Compact Now Playing Info */}
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between mb-1">
           <div className="flex items-center space-x-2">
             <div className="w-6 h-6 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
               <SafeIcon 
@@ -91,9 +116,8 @@ const AudioPlayer = ({ verses, surah, surahNumber, onScrollToAyah }) => {
             </div>
           </div>
           <div className="text-right flex-1 ml-3">
-            <div className="quran-text-pak text-sm leading-relaxed">
-              {currentVerse.text_uthmani?.substring(0, 40)}
-              {currentVerse.text_uthmani?.length > 40 ? '...' : ''}
+            <div className="quran-text-pak text-xs leading-relaxed">
+              {arabicPreview}
             </div>
           </div>
         </div>
@@ -104,7 +128,7 @@ const AudioPlayer = ({ verses, surah, surahNumber, onScrollToAyah }) => {
             type="button"
             onClick={handlePreviousAyah}
             disabled={currentVerse.verse_number <= 1}
-            className="w-8 h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-7 h-7 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <SafeIcon icon={FiArrowLeft} className="text-sm" />
           </button>
@@ -112,7 +136,7 @@ const AudioPlayer = ({ verses, surah, surahNumber, onScrollToAyah }) => {
           <button
             type="button"
             onClick={handlePlayPause}
-            className="w-10 h-10 bg-white bg-opacity-30 rounded-full flex items-center justify-center hover:bg-opacity-40 transition-colors"
+            className="w-9 h-9 bg-white bg-opacity-30 rounded-full flex items-center justify-center hover:bg-opacity-40 transition-colors"
           >
             <SafeIcon 
               icon={isPaused ? FiPlay : FiPause} 
@@ -123,7 +147,7 @@ const AudioPlayer = ({ verses, surah, surahNumber, onScrollToAyah }) => {
           <button
             type="button"
             onClick={handleStop}
-            className="w-8 h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30 transition-colors"
+            className="w-7 h-7 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30 transition-colors"
           >
             <div className="w-2 h-2 bg-white rounded-sm"></div>
           </button>
@@ -132,14 +156,14 @@ const AudioPlayer = ({ verses, surah, surahNumber, onScrollToAyah }) => {
             type="button"
             onClick={handleNextAyah}
             disabled={!surah || currentVerse.verse_number >= surah.verses_count}
-            className="w-8 h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-7 h-7 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <SafeIcon icon={FiArrowLeft} className="text-sm rotate-180" />
           </button>
         </div>
       </div>
     );
-  }, [currentVerse, isPaused, surah, handlePlayPause, handleStop, handlePreviousAyah, handleNextAyah, handleScrollToAyah]);
+  }, [arabicPreview, currentVerse, isPaused, surah, handlePlayPause, handleStop, handlePreviousAyah, handleNextAyah, handleScrollToAyah]);
 
   if (!isVisible) return null;
 

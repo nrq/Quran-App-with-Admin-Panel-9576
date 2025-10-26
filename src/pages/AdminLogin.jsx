@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
@@ -99,14 +99,12 @@ const AdminLogin = () => {
             {loading ? 'Logging in...' : 'Login'}
           </button>
         </form>
-
-        <div className="mt-6 p-4 bg-islamic-50 rounded-lg">
-          <p className="text-sm text-islamic-600 text-center">
-            <strong>Admin Credentials:</strong><br />
-            <br />
-            
-          </p>
-        </div>
+        <Link
+          to="/"
+          className="mt-6 inline-flex w-full items-center justify-center space-x-2 border border-islamic-200 text-islamic-700 py-2.5 rounded-lg hover:bg-islamic-50 transition-colors"
+        >
+          <span>Go Back</span>
+        </Link>
       </motion.div>
     </div>
   );

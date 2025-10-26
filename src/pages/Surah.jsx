@@ -1,20 +1,22 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
 import AyahCard from '../components/AyahCard';
 import AudioPlayer from '../components/AudioPlayer';
-import { useQuranData } from '../contexts/QuranContext';
+import { useQuranAudio, useQuranData } from '../contexts/QuranContext';
 
 const { FiArrowLeft, FiBook, FiMapPin } = FiIcons;
 
 const Surah = () => {
   const { surahNumber } = useParams();
   const { surahs, fetchSurahVerses, setCurrentSurah } = useQuranData();
+  const { playingAyah } = useQuranAudio();
   const [verses, setVerses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [surah, setSurah] = useState(null);
+  const lastScrolledAyahRef = useRef(null);
 
   const scrollToAyah = useCallback((ayahNumber) => {
     const ayahElement = document.querySelector(`[data-ayah="${ayahNumber}"]`);
@@ -22,6 +24,29 @@ const Surah = () => {
       ayahElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   }, []);
+
+  useEffect(() => {
+    lastScrolledAyahRef.current = null;
+  }, [surahNumber]);
+
+  useEffect(() => {
+    if (!playingAyah) {
+      return;
+    }
+
+    const [playingSurahId, playingAyahNumber] = playingAyah.split(':').map(Number);
+
+    if (Number(surahNumber) !== playingSurahId || !playingAyahNumber) {
+      return;
+    }
+
+    if (lastScrolledAyahRef.current === playingAyahNumber) {
+      return;
+    }
+
+    lastScrolledAyahRef.current = playingAyahNumber;
+    scrollToAyah(playingAyahNumber);
+  }, [playingAyah, scrollToAyah, surahNumber]);
 
   useEffect(() => {
     const loadSurah = async () => {

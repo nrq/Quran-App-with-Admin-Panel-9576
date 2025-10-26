@@ -1,11 +1,23 @@
-import { Outlet, Link } from 'react-router-dom';
+import { Outlet, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
+import { useQuranData } from '../contexts/QuranContext';
 
-const { FiBook, FiSettings } = FiIcons;
+const { FiBook, FiSettings, FiCornerDownRight } = FiIcons;
 
 const Layout = () => {
+  const navigate = useNavigate();
+  const { lastPlayedPosition } = useQuranData();
+
+  const handleResumeLastAyah = () => {
+    if (!lastPlayedPosition?.surahNumber || !lastPlayedPosition?.ayahNumber) {
+      return;
+    }
+
+    navigate(`/surah/${lastPlayedPosition.surahNumber}?ayah=${lastPlayedPosition.ayahNumber}`);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-islamic-50 to-islamic-100">
       <nav className="bg-white shadow-lg border-b border-islamic-200">
@@ -19,6 +31,17 @@ const Layout = () => {
             </Link>
 
             <div className="flex items-center space-x-6">
+              <button
+                type="button"
+                onClick={handleResumeLastAyah}
+                disabled={!lastPlayedPosition}
+                className="flex items-center space-x-2 px-4 py-2 rounded-lg text-islamic-700 hover:bg-islamic-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                title={lastPlayedPosition ? `Resume ${lastPlayedPosition.surahNumber}:${lastPlayedPosition.ayahNumber}` : 'Last ayah not available yet'}
+              >
+                <SafeIcon icon={FiCornerDownRight} className="text-lg" />
+                <span className="hidden sm:inline text-sm font-medium">Last Ayah</span>
+              </button>
+
               <Link 
                 to="/admin/login" 
                 className="flex items-center space-x-2 px-4 py-2 rounded-lg text-islamic-700 hover:bg-islamic-100 transition-colors"

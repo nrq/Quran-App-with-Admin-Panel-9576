@@ -248,7 +248,7 @@ const SearchBar = ({ variant = 'global' }) => {
             <button
               type="button"
               onClick={handleOpen}
-              className="inline-flex items-center justify-center rounded-full bg-white border border-slate-200 shadow-2xl p-3 text-slate-500 transition-all duration-200 hover:shadow-[0_20px_45px_-15px_rgba(59,130,246,0.5)] hover:shadow-blue-500/50"
+              className="inline-flex items-center justify-center rounded-full border border-blue-100 bg-white text-blue-500 shadow-[0_18px_38px_-18px_rgba(59,130,246,0.6)] p-3 transition-all duration-200 hover:bg-blue-50 hover:text-blue-600 hover:shadow-[0_26px_55px_-18px_rgba(37,99,235,0.65)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
               aria-label="Open search"
             >
               <SafeIcon icon={FiSearch} className="text-xl" />
@@ -297,7 +297,7 @@ const SearchBar = ({ variant = 'global' }) => {
                       event.preventDefault();
                       navigate('/');
                     }}
-                    className="flex items-center gap-1.5 px-2 py-1 text-xs text-slate-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all shadow-md hover:shadow-green-500/50"
+                    className="flex items-center gap-1.5 px-2 py-1 text-xs text-green-600 bg-green-50 rounded-lg transition-all shadow-[0_14px_32px_-18px_rgba(34,197,94,0.55)] hover:bg-green-100 hover:text-green-700 hover:shadow-[0_22px_46px_-16px_rgba(22,163,74,0.6)]"
                     aria-label="Go to home"
                   >
                     <SafeIcon icon={FiHome} className="text-sm" />

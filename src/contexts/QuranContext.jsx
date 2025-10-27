@@ -1245,7 +1245,12 @@ export const QuranProvider = ({ children }) => {
         };
 
         const handleSupplementalError = (event) => {
-          console.error('Supplemental audio playback error:', event);
+          // Silently skip missing supplemental audio files and continue to next ayah
+          console.warn('Supplemental audio file not found, skipping to next ayah:', {
+            surah: normalizedSurahNumber,
+            ayah: normalizedAyahNumber,
+            url: supplementalAudioUrl
+          });
           toast.dismiss(supplementalToastId);
           cleanupSupplementalListeners();
           destroyCurrentAudio();
@@ -1276,7 +1281,12 @@ export const QuranProvider = ({ children }) => {
         const supplementalPlayPromise = supplementalAudio.play();
         if (supplementalPlayPromise) {
           supplementalPlayPromise.catch((error) => {
-            console.error('Supplemental audio play promise rejected:', error);
+            // Silently skip missing supplemental audio files and continue to next ayah
+            console.warn('Supplemental audio play failed, skipping to next ayah:', {
+              surah: normalizedSurahNumber,
+              ayah: normalizedAyahNumber,
+              error: error.message
+            });
             toast.dismiss(supplementalToastId);
             cleanupSupplementalListeners();
             destroyCurrentAudio();
@@ -1320,7 +1330,12 @@ export const QuranProvider = ({ children }) => {
       };
 
       const handleError = (event) => {
-        console.error('Audio playback error:', event);
+        // Silently skip missing primary audio files and continue to next ayah
+        console.warn('Primary audio file not found, skipping to next ayah:', {
+          surah: normalizedSurahNumber,
+          ayah: normalizedAyahNumber,
+          url: audioUrl
+        });
         toast.dismiss(loadingToastId);
         cleanupAudioListeners();
         setIsPaused(false);
@@ -1354,7 +1369,12 @@ export const QuranProvider = ({ children }) => {
       const playPromise = audio.play();
       if (playPromise) {
         playPromise.catch((error) => {
-          console.error('Audio play promise rejected:', error);
+          // Silently skip missing primary audio files and continue to next ayah
+          console.warn('Primary audio play failed, skipping to next ayah:', {
+            surah: normalizedSurahNumber,
+            ayah: normalizedAyahNumber,
+            error: error.message
+          });
           toast.dismiss(loadingToastId);
           cleanupAudioListeners();
           setIsPaused(false);

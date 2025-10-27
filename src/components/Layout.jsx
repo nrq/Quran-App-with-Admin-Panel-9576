@@ -5,7 +5,7 @@ import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
 import { useQuranData } from '../contexts/QuranContext';
 import SettingsPanel from './SettingsPanel';
-import SearchBar from './SearchBar';
+import ExpandableSearch from './ExpandableSearch';
 
 const { FiBook, FiSettings, FiCornerDownRight } = FiIcons;
 
@@ -121,8 +121,8 @@ const Layout = () => {
               <span className={brandTextClass}>NurulQuran</span>
             </Link>
 
-            <div className="flex-1 hidden md:flex justify-center">
-              <SearchBar variant="nav" />
+            <div className="flex-1 flex justify-center">
+              <ExpandableSearch variant="nav" />
             </div>
 
             <div className="flex items-center space-x-4">
@@ -152,9 +152,6 @@ const Layout = () => {
       </nav>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="md:hidden mb-6">
-          <SearchBar />
-        </div>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

@@ -113,7 +113,7 @@ const Layout = () => {
     <div className={shellClasses}>
       <nav className={navClasses}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
+          <div className="flex items-center gap-6 h-16">
             <Link to="/" className="flex items-center space-x-3">
               <div className={brandBadgeClasses}>
                 <SafeIcon icon={FiBook} className="text-white text-xl" />
@@ -121,7 +121,11 @@ const Layout = () => {
               <span className={brandTextClass}>NurulQuran</span>
             </Link>
 
-            <div className="flex items-center space-x-6">
+            <div className="flex-1 hidden md:flex justify-center">
+              <SearchBar variant="nav" />
+            </div>
+
+            <div className="flex items-center space-x-4">
               <button
                 type="button"
                 onClick={handleResumeLastAyah}
@@ -148,16 +152,16 @@ const Layout = () => {
       </nav>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="space-y-8">
+        <div className="md:hidden mb-6">
           <SearchBar />
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            <Outlet />
-          </motion.div>
         </div>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <Outlet />
+        </motion.div>
       </main>
 
       <SettingsPanel isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />

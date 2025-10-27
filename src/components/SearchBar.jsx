@@ -6,7 +6,7 @@ import { useQuranData } from '../contexts/QuranContext';
 
 const { FiSearch, FiX, FiArrowRight } = FiIcons;
 
-const SearchBar = () => {
+const SearchBar = ({ variant = 'global' }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { searchQuran } = useQuranData();
@@ -104,7 +104,7 @@ const SearchBar = () => {
 
   const showResults = hasQuery && (isFocused || isLoading || results.length > 0);
 
-  const placeholder = useMemo(
+  const placeholderText = useMemo(
     () => 'Search e.g. 15:20, Cave 44, كدأب',
     []
   );
@@ -113,18 +113,38 @@ const SearchBar = () => {
     return null;
   }
 
+  const isNavVariant = variant === 'nav';
+
+  const containerClasses = isNavVariant
+    ? 'relative w-full max-w-xl pointer-events-auto'
+    : 'sticky top-4 z-40 flex justify-center w-full';
+
+  const innerWidthClasses = isNavVariant
+    ? 'w-full transition-all duration-300'
+    : `w-full transition-all duration-300 ${isFocused || hasQuery ? 'max-w-3xl' : 'max-w-2xl'}`;
+
+  const cardClasses = isNavVariant
+    ? 'backdrop-blur-lg bg-white/80 dark:bg-slate-900/80 border border-white/60 dark:border-slate-700/70 shadow-xl rounded-2xl px-4 py-2'
+    : 'backdrop-blur-lg bg-white/70 dark:bg-slate-900/70 border border-white/40 dark:border-slate-700/60 shadow-xl rounded-2xl px-6 py-4';
+
+  const inputWrapperClasses = isNavVariant
+    ? `flex items-center gap-3 rounded-xl bg-white/85 dark:bg-slate-900/85 border border-slate-200/80 dark:border-slate-700 px-4 py-1.5 transition-all duration-200 ${
+        isFocused ? 'ring-2 ring-islamic-gold shadow-lg' : 'shadow-sm'
+      }`
+    : `flex items-center gap-3 rounded-xl bg-white/80 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-700 px-4 py-2 transition-all duration-200 ${
+        isFocused ? 'ring-2 ring-islamic-gold shadow-lg' : 'shadow-sm'
+      }`;
+
+  const resultsWrapperClasses = isNavVariant
+    ? 'absolute left-1/2 top-full z-50 mt-3 w-[min(36rem,90vw)] -translate-x-1/2'
+    : 'mt-3 w-full';
+
   return (
-    <div className="sticky top-4 z-40 flex justify-center">
-      <div
-        className={`w-full transition-all duration-300 ${
-          isFocused || hasQuery ? 'max-w-3xl' : 'max-w-2xl'
-        } pointer-events-auto`}
-      >
-        <div className="backdrop-blur-lg bg-white/70 dark:bg-slate-900/70 border border-white/40 dark:border-slate-700/60 shadow-xl rounded-2xl px-6 py-4">
+    <div className={containerClasses}>
+      <div className={innerWidthClasses}>
+        <div className={cardClasses}> 
           <div
-            className={`flex items-center gap-3 rounded-xl bg-white/80 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-700 px-4 py-2 transition-all duration-200 ${
-              isFocused ? 'ring-2 ring-islamic-gold shadow-lg' : 'shadow-sm'
-            }`}
+            className={inputWrapperClasses}
           >
             <SafeIcon icon={FiSearch} className="text-slate-400 text-lg" />
             <input
@@ -134,8 +154,10 @@ const SearchBar = () => {
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
               onKeyDown={handleKeyDown}
-              placeholder={placeholder}
-              className="flex-1 bg-transparent text-sm md:text-base placeholder:text-slate-400 focus:outline-none"
+              placeholder={placeholderText}
+              className={`flex-1 bg-transparent placeholder:text-slate-400 focus:outline-none ${
+                isNavVariant ? 'text-sm md:text-base py-1' : 'text-sm md:text-base'
+              }`}
               aria-label="Search Quran"
             />
             {hasQuery && (
@@ -150,15 +172,17 @@ const SearchBar = () => {
               </button>
             )}
           </div>
-          <p className="mt-2 text-xs text-slate-500 text-center">
-            Try typing <span className="font-medium text-slate-400">15:20</span>,{' '}
-            <span className="font-medium text-slate-400">Cave 44</span>, or{' '}
-            <span className="font-medium text-slate-400">كَدَأْبِ</span>
-          </p>
+          {!isNavVariant && (
+            <p className="mt-2 text-xs text-slate-500 text-center">
+              Try typing <span className="font-medium text-slate-400">15:20</span>,{' '}
+              <span className="font-medium text-slate-400">Cave 44</span>, or{' '}
+              <span className="font-medium text-slate-400">كَدَأْبِ</span>
+            </p>
+          )}
         </div>
 
         {showResults && (
-          <div className="mt-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl overflow-hidden max-h-96">
+          <div className={`${resultsWrapperClasses} bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl overflow-hidden max-h-96`}> 
             {isLoading ? (
               <div className="px-6 py-8 text-center text-sm text-slate-500">Searching…</div>
             ) : (

@@ -4,7 +4,7 @@ import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
 import { useQuranData } from '../contexts/QuranContext';
 
-const { FiSearch, FiX, FiArrowRight, FiList } = FiIcons;
+const { FiSearch, FiX, FiArrowRight, FiList, FiHome } = FiIcons;
 
 const RECENT_SEARCHES_KEY = 'quran_recent_searches';
 const MAX_RECENT_SEARCHES = 5;
@@ -191,7 +191,17 @@ const SearchBar = ({ variant = 'global' }) => {
     });
   }, []);
 
+  const handleRecentSearchClick = useCallback((term) => {
+    setQuery(term);
+    window.requestAnimationFrame(() => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+    });
+  }, []);
+
   const showResults = isExpanded && hasQuery && (isFocused || isLoading || results.length > 0);
+  const showRecentSearches = isExpanded && !hasQuery && isFocused && recentSearches.length > 0;
 
   const placeholderText = useMemo(
     () => 'Search e.g. 15:20, Cave 44, كدأب',
@@ -276,13 +286,53 @@ const SearchBar = ({ variant = 'global' }) => {
                 )}
               </div>
               {!isNavVariant && (
-                <p className="mt-2 text-xs text-slate-600 text-center">
-                  Try typing <span className="font-medium text-slate-500">15:20</span>,{' '}
-                  <span className="font-medium text-slate-500">Cave 44</span>, or{' '}
-                  <span className="font-medium text-slate-500">كَدَأْبِ</span>
-                </p>
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={() => navigate('/')}
+                    className="flex items-center gap-1.5 px-2 py-1 text-xs text-slate-600 hover:text-islamic-600 hover:bg-slate-50 rounded-lg transition-colors"
+                    aria-label="Go to home"
+                  >
+                    <SafeIcon icon={FiHome} className="text-sm" />
+                    <span className="font-medium">Home</span>
+                  </button>
+                  <p className="text-xs text-slate-600">
+                    Try typing <span className="font-medium text-slate-500">15:20</span>,{' '}
+                    <span className="font-medium text-slate-500">Cave 44</span>, or{' '}
+                    <span className="font-medium text-slate-500">كَدَأْبِ</span>
+                  </p>
+                </div>
               )}
             </div>
+
+            {showRecentSearches && (
+              <div className={`${resultsWrapperClasses} bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden`}>
+                <div className="px-5 py-3 border-b border-slate-100">
+                  <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold flex items-center gap-2">
+                    <SafeIcon icon={FiList} className="text-sm" />
+                    Recent Searches
+                  </p>
+                </div>
+                <ul className="divide-y divide-slate-100">
+                  {recentSearches.map((term, index) => (
+                    <li key={index}>
+                      <button
+                        type="button"
+                        onMouseDown={(event) => {
+                          event.preventDefault();
+                          handleRecentSearchClick(term);
+                        }}
+                        onClick={() => handleRecentSearchClick(term)}
+                        className="w-full text-left px-5 py-3 hover:bg-islamic-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-islamic-gold flex items-center justify-between gap-4"
+                      >
+                        <span className="text-sm text-slate-700">{term}</span>
+                        <SafeIcon icon={FiSearch} className="text-slate-400 text-sm" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             {showResults && (
               <div className={`${resultsWrapperClasses} bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden max-h-96`}> 

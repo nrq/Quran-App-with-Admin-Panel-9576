@@ -289,7 +289,14 @@ const SearchBar = ({ variant = 'global' }) => {
                 <div className="mt-2 flex items-center justify-between gap-2">
                   <button
                     type="button"
-                    onClick={() => navigate('/')}
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      navigate('/');
+                    }}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      navigate('/');
+                    }}
                     className="flex items-center gap-1.5 px-2 py-1 text-xs text-slate-600 hover:text-islamic-600 hover:bg-slate-50 rounded-lg transition-colors"
                     aria-label="Go to home"
                   >

@@ -155,7 +155,7 @@ export const QuranProvider = ({ children }) => {
 
     const paddedSurah = String(normalizedSurah).padStart(3, '0');
     const paddedAyah = String(normalizedAyah).padStart(3, '0');
-    return `https://nrq.no/wp-content/uploads/ayah/${paddedSurah}/${paddedSurah}-${paddedAyah}.mp3`;
+    return `https://nrq.no/wp-content/uploads/ayah/${paddedSurah}-${paddedAyah}.mp3`;
   }, []);
 
   const ensureSearchIndex = useCallback(async () => {

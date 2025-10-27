@@ -1149,10 +1149,27 @@ export const QuranProvider = ({ children }) => {
 
   const playAudio = useCallback(
     (surahNumber, ayahNumber, autoPlayNext = true) => {
-      const ayahKey = `${surahNumber}:${ayahNumber}`;
+      const normalizedSurahNumber = Number(surahNumber);
+      const normalizedAyahNumber = Number(ayahNumber);
+
+      if (
+        !Number.isInteger(normalizedSurahNumber) ||
+        !Number.isInteger(normalizedAyahNumber) ||
+        normalizedSurahNumber < 1 ||
+        normalizedSurahNumber > 114 ||
+        normalizedAyahNumber < 1
+      ) {
+        console.warn('Invalid surah/ayah provided to playAudio', {
+          surahNumber,
+          ayahNumber
+        });
+        return;
+      }
+
+      const ayahKey = `${normalizedSurahNumber}:${normalizedAyahNumber}`;
       const shouldPlayPrimary = enablePrimaryAudio;
       const supplementalUrl = enableSupplementalAudio
-        ? getSupplementalAudioUrl(surahNumber, ayahNumber)
+        ? getSupplementalAudioUrl(normalizedSurahNumber, normalizedAyahNumber)
         : null;
 
       if (!shouldPlayPrimary && !supplementalUrl) {
@@ -1173,18 +1190,18 @@ export const QuranProvider = ({ children }) => {
 
       setPlayingAyah(ayahKey);
       setIsPaused(false);
-      persistReadingPosition(surahNumber, ayahNumber);
+      persistReadingPosition(normalizedSurahNumber, normalizedAyahNumber);
       supplementalAudioPhaseRef.current = 'primary';
       pendingSupplementalUrlRef.current = supplementalUrl;
 
       const advanceToNextOrStop = () => {
-        const currentSurahData = surahs.find((surah) => surah.id === surahNumber);
+        const currentSurahData = surahs.find((surah) => surah.id === normalizedSurahNumber);
         const shouldAutoAdvance =
-          autoPlayNext && currentSurahData && ayahNumber < currentSurahData.verses_count;
+          autoPlayNext && currentSurahData && normalizedAyahNumber < currentSurahData.verses_count;
 
         if (shouldAutoAdvance) {
           destroyCurrentAudio();
-          playAudio(surahNumber, ayahNumber + 1, true);
+          playAudio(normalizedSurahNumber, normalizedAyahNumber + 1, true);
           return;
         }
 
@@ -1277,7 +1294,7 @@ export const QuranProvider = ({ children }) => {
         return;
       }
 
-      const audioUrl = getAudioUrl(surahNumber, ayahNumber);
+  const audioUrl = getAudioUrl(normalizedSurahNumber, normalizedAyahNumber);
       const loadingToastId = toast.loading('Loading audio...');
       const audio = new Audio(audioUrl);
       audio.preload = 'auto';

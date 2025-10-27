@@ -968,11 +968,12 @@ export const QuranProvider = ({ children }) => {
         const handleSupplementalError = (event) => {
           console.error('Supplemental audio playback error:', event);
           toast.dismiss(supplementalToastId);
-          toast.error('Failed to play translation audio.');
           cleanupSupplementalListeners();
           destroyCurrentAudio();
           supplementalAudioPhaseRef.current = 'primary';
           pendingSupplementalUrlRef.current = null;
+          setCurrentAudio(null);
+          setIsPaused(false);
           advanceToNextOrStop();
         };
 
@@ -998,11 +999,12 @@ export const QuranProvider = ({ children }) => {
           supplementalPlayPromise.catch((error) => {
             console.error('Supplemental audio play promise rejected:', error);
             toast.dismiss(supplementalToastId);
-            toast.error('Translation playback was interrupted.');
             cleanupSupplementalListeners();
             destroyCurrentAudio();
             supplementalAudioPhaseRef.current = 'primary';
             pendingSupplementalUrlRef.current = null;
+            setCurrentAudio(null);
+            setIsPaused(false);
             advanceToNextOrStop();
           });
         }
@@ -1041,13 +1043,12 @@ export const QuranProvider = ({ children }) => {
       const handleError = (event) => {
         console.error('Audio playback error:', event);
         toast.dismiss(loadingToastId);
-        toast.error('Failed to play audio. Please try another ayah.');
         cleanupAudioListeners();
-        setPlayingAyah(null);
         setIsPaused(false);
         setCurrentAudio(null);
         destroyCurrentAudio();
         pendingSupplementalUrlRef.current = null;
+        advanceToNextOrStop();
       };
 
       const handleEnded = () => {
@@ -1076,13 +1077,12 @@ export const QuranProvider = ({ children }) => {
         playPromise.catch((error) => {
           console.error('Audio play promise rejected:', error);
           toast.dismiss(loadingToastId);
-          toast.error('Playback was interrupted. Please try again.');
           cleanupAudioListeners();
-          setPlayingAyah(null);
           setIsPaused(false);
           setCurrentAudio(null);
           destroyCurrentAudio();
           pendingSupplementalUrlRef.current = null;
+          advanceToNextOrStop();
         });
       }
     },

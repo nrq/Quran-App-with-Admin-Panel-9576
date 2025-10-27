@@ -373,7 +373,7 @@ export const QuranProvider = ({ children }) => {
         });
       }
 
-      candidateSurahs.slice(0, 8).forEach((surah) => {
+      candidateSurahs.forEach((surah) => {
         addSurahResult(surah);
 
         let ayahNumber = null;
@@ -401,14 +401,11 @@ export const QuranProvider = ({ children }) => {
             if (entry.textArabicPlain.includes(normalizedQuery)) {
               addAyahResult(entry);
             }
-            if (ayahResults.length >= 12) {
-              break;
-            }
           }
         }
       }
 
-      return [...ayahResults, ...surahResults.slice(0, 8)];
+      return [...ayahResults, ...surahResults];
     },
     [ensureSearchIndex, surahs]
   );

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useSearchParams, useNavigate, Link } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
@@ -53,10 +53,14 @@ const SearchResults = ({ onOpenSettings }) => {
         <nav className="bg-white shadow-lg border-b border-slate-200">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between h-16">
-              <Link to="/" className="flex items-center space-x-2 text-islamic-600 hover:text-islamic-800">
+              <button
+                type="button"
+                onClick={() => navigate(-1)}
+                className="flex items-center space-x-2 text-islamic-600 hover:text-islamic-800"
+              >
                 <SafeIcon icon={FiArrowLeft} />
                 <span className="font-medium">Back</span>
-              </Link>
+              </button>
               <button
                 type="button"
                 onClick={onOpenSettings}
@@ -85,10 +89,14 @@ const SearchResults = ({ onOpenSettings }) => {
       <nav className="bg-white shadow-lg border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <Link to="/" className="flex items-center space-x-2 text-islamic-600 hover:text-islamic-800">
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="flex items-center space-x-2 text-islamic-600 hover:text-islamic-800"
+            >
               <SafeIcon icon={FiArrowLeft} />
               <span className="font-medium">Back</span>
-            </Link>
+            </button>
             <button
               type="button"
               onClick={onOpenSettings}

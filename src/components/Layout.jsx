@@ -5,6 +5,7 @@ import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
 import { useQuranData } from '../contexts/QuranContext';
 import SettingsPanel from './SettingsPanel';
+import SearchBar from './SearchBar';
 
 const { FiBook, FiSettings, FiCornerDownRight } = FiIcons;
 
@@ -147,13 +148,16 @@ const Layout = () => {
       </nav>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          <Outlet />
-        </motion.div>
+        <div className="space-y-8">
+          <SearchBar />
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <Outlet />
+          </motion.div>
+        </div>
       </main>
 
       <SettingsPanel isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />

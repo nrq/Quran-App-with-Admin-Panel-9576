@@ -51,6 +51,11 @@ const LANGUAGE_CONFIG = {
 
 const DEFAULT_LANGUAGE = 'English';
 
+const ARABIC_DIACRITICS_REGEX = /[\u0610-\u061A\u064B-\u065F\u06D6-\u06ED]/g;
+const ARABIC_LETTER_REGEX = /[\u0600-\u06FF]/;
+
+const stripArabicDiacritics = (text = '') => text.replace(ARABIC_DIACRITICS_REGEX, '');
+
 const AUDIO_PREFERENCES_STORAGE_KEY = 'quran_audio_preferences';
 
 const buildTranslationStorageKey = (edition, surahNumber) => `quran_translation_${edition}_${surahNumber}`;
@@ -101,6 +106,8 @@ export const QuranProvider = ({ children }) => {
   const translationWarningRef = useRef(new Set());
   const supplementalAudioPhaseRef = useRef('primary');
   const pendingSupplementalUrlRef = useRef(null);
+  const searchIndexRef = useRef(null);
+  const searchIndexPromiseRef = useRef(null);
 
   const persistAudioPreferences = useCallback((primaryEnabled, supplementalEnabled) => {
     try {
@@ -150,6 +157,261 @@ export const QuranProvider = ({ children }) => {
     const paddedAyah = String(normalizedAyah).padStart(3, '0');
     return `https://nrq.no/wp-content/uploads/ayah/${paddedSurah}/${paddedSurah}-${paddedAyah}.mp3`;
   }, []);
+
+  const ensureSearchIndex = useCallback(async () => {
+    if (searchIndexRef.current) {
+      return searchIndexRef.current;
+    }
+
+    if (!searchIndexPromiseRef.current) {
+      searchIndexPromiseRef.current = (async () => {
+        try {
+          const { getAllQuranData } = await import('../data/quran-data.js');
+          const data = await getAllQuranData();
+          if (!data) {
+            const emptyIndex = { verses: [], verseMap: new Map() };
+            searchIndexRef.current = emptyIndex;
+            return emptyIndex;
+          }
+
+          const verses = [];
+          const verseMap = new Map();
+
+          Object.entries(data).forEach(([surahKey, surahData]) => {
+            const surahNumber = Number(surahKey);
+            const verseEntries = Array.isArray(surahData?.verses) ? surahData.verses : [];
+
+            verseEntries.forEach((verse) => {
+              const textArabic = verse.text_uthmani || '';
+              const textArabicPlain = stripArabicDiacritics(textArabic);
+              const wordsOriginal = textArabic.trim().split(/\s+/).filter(Boolean);
+              const wordsPlain = wordsOriginal.map((word) => stripArabicDiacritics(word));
+
+              const entry = {
+                surahNumber,
+                ayahNumber: Number(verse.verse_number) || 0,
+                textArabic,
+                textArabicPlain,
+                wordsOriginal,
+                wordsPlain
+              };
+
+              verses.push(entry);
+              verseMap.set(`${surahNumber}:${entry.ayahNumber}`, entry);
+            });
+          });
+
+          const builtIndex = { verses, verseMap };
+          searchIndexRef.current = builtIndex;
+          return builtIndex;
+        } catch (error) {
+          console.error('Error building search index:', error);
+          const fallbackIndex = { verses: [], verseMap: new Map() };
+          searchIndexRef.current = fallbackIndex;
+          return fallbackIndex;
+        } finally {
+          searchIndexPromiseRef.current = null;
+        }
+      })();
+    }
+
+    return searchIndexPromiseRef.current;
+  }, []);
+
+  const searchQuran = useCallback(
+    async (rawQuery) => {
+      const trimmedQuery = typeof rawQuery === 'string' ? rawQuery.trim() : '';
+      if (!trimmedQuery) {
+        return [];
+      }
+
+      const lowerQuery = trimmedQuery.toLowerCase();
+      const tokens = lowerQuery.split(/\s+/).filter(Boolean);
+      const numericTokens = tokens.filter((token) => /^\d+$/.test(token));
+      const wantsLastAyah = tokens.includes('last');
+      const textualTokens = tokens
+        .filter((token) => !/^\d+$/.test(token) && token !== 'last')
+        .map((token) => token.replace(/[^a-z\u0600-\u06FF]/g, ''))
+        .filter(Boolean);
+      const hasArabicQuery = ARABIC_LETTER_REGEX.test(trimmedQuery);
+
+      const index = await ensureSearchIndex();
+      const surahLookup = surahs || [];
+
+      const ayahResults = [];
+      const surahResults = [];
+      const seenAyahKeys = new Set();
+      const seenSurahIds = new Set();
+
+      const buildSnippet = (entry) => {
+        const { wordsOriginal, wordsPlain, textArabic } = entry;
+        if (!wordsOriginal.length) {
+          return textArabic.split(/\s+/).slice(0, 3).join(' ');
+        }
+
+        let startIndex = 0;
+
+        if (hasArabicQuery) {
+          const normalizedQuery = stripArabicDiacritics(trimmedQuery).replace(/\s+/g, ' ').trim();
+          if (normalizedQuery) {
+            const matchIndex = wordsPlain.findIndex((word) => word.includes(normalizedQuery));
+            if (matchIndex !== -1) {
+              startIndex = Math.max(0, matchIndex - 1);
+            }
+          }
+        }
+
+        const snippetWords = wordsOriginal.slice(startIndex, startIndex + 3);
+        if (!snippetWords.length) {
+          return wordsOriginal.slice(0, 3).join(' ');
+        }
+        return snippetWords.join(' ');
+      };
+
+      const addAyahResult = (entry) => {
+        if (!entry) {
+          return;
+        }
+
+        const key = `${entry.surahNumber}:${entry.ayahNumber}`;
+        if (seenAyahKeys.has(key)) {
+          return;
+        }
+
+        const surahInfo = surahLookup.find((item) => item.id === entry.surahNumber);
+        ayahResults.push({
+          type: 'ayah',
+          id: key,
+          surahNumber: entry.surahNumber,
+          ayahNumber: entry.ayahNumber,
+          snippet: buildSnippet(entry),
+          arabic: entry.textArabic,
+          surahName: surahInfo?.name_simple || `Surah ${entry.surahNumber}`,
+          surahArabicName: surahInfo?.name_arabic || '',
+          surahEnglishName: surahInfo?.translated_name?.name || '',
+          versesCount: surahInfo?.verses_count || 0
+        });
+        seenAyahKeys.add(key);
+      };
+
+      const addSurahResult = (surah) => {
+        if (!surah || seenSurahIds.has(surah.id)) {
+          return;
+        }
+
+        surahResults.push({
+          type: 'surah',
+          id: `surah-${surah.id}`,
+          surahNumber: surah.id,
+          name: surah.name_simple,
+          arabicName: surah.name_arabic,
+          englishName: surah.translated_name?.name || '',
+          versesCount: surah.verses_count
+        });
+        seenSurahIds.add(surah.id);
+      };
+
+      const parseDirectReference = () => {
+  const colonMatch = trimmedQuery.match(/^(\d{1,3})\s*[:-]\s*(\d{1,3})$/);
+        if (colonMatch) {
+          return {
+            surahNumber: Number(colonMatch[1]),
+            ayahNumber: Number(colonMatch[2])
+          };
+        }
+
+        const spaceMatch = trimmedQuery.match(/^(\d{1,3})\s+(\d{1,3})$/);
+        if (spaceMatch) {
+          return {
+            surahNumber: Number(spaceMatch[1]),
+            ayahNumber: Number(spaceMatch[2])
+          };
+        }
+
+        return null;
+      };
+
+      const directReference = parseDirectReference();
+      if (directReference) {
+        const entry = index.verseMap.get(`${directReference.surahNumber}:${directReference.ayahNumber}`);
+        if (entry) {
+          addAyahResult(entry);
+        }
+      }
+
+      const candidateSurahs = [];
+      if (surahLookup.length) {
+        const hasOnlyNumber = !textualTokens.length && numericTokens.length === 1 && !hasArabicQuery;
+        const normalizedQuery = lowerQuery.replace(/[^a-z0-9\u0600-\u06FF\s]/g, ' ').trim();
+
+        surahLookup.forEach((surah) => {
+          const fields = [
+            String(surah.id),
+            surah.name_simple,
+            surah.translated_name?.name,
+            surah.name_arabic,
+            stripArabicDiacritics(surah.name_arabic || '')
+          ]
+            .filter(Boolean)
+            .map((value) => value.toLowerCase().replace(/[^a-z0-9\u0600-\u06FF\s]/g, ' '));
+
+          let matches = false;
+
+          if (hasOnlyNumber) {
+            matches = Number(numericTokens[0]) === surah.id;
+          } else if (textualTokens.length) {
+            matches = textualTokens.every((token) =>
+              fields.some((field) => field.includes(token))
+            );
+          } else if (normalizedQuery) {
+            matches = fields.some((field) => field.includes(normalizedQuery));
+          }
+
+          if (matches) {
+            candidateSurahs.push(surah);
+          }
+        });
+      }
+
+      candidateSurahs.slice(0, 8).forEach((surah) => {
+        addSurahResult(surah);
+
+        let ayahNumber = null;
+        if (wantsLastAyah) {
+          ayahNumber = surah.verses_count;
+        } else if (numericTokens.length) {
+          const possibleAyah = Number(numericTokens[0]);
+          if (Number.isInteger(possibleAyah) && possibleAyah >= 1) {
+            ayahNumber = possibleAyah;
+          }
+        }
+
+        if (ayahNumber) {
+          const entry = index.verseMap.get(`${surah.id}:${ayahNumber}`);
+          if (entry) {
+            addAyahResult(entry);
+          }
+        }
+      });
+
+      if (hasArabicQuery) {
+        const normalizedQuery = stripArabicDiacritics(trimmedQuery).replace(/\s+/g, ' ').trim();
+        if (normalizedQuery) {
+          for (const entry of index.verses) {
+            if (entry.textArabicPlain.includes(normalizedQuery)) {
+              addAyahResult(entry);
+            }
+            if (ayahResults.length >= 12) {
+              break;
+            }
+          }
+        }
+      }
+
+      return [...ayahResults, ...surahResults.slice(0, 8)];
+    },
+    [ensureSearchIndex, surahs]
+  );
 
   useEffect(() => {
     try {
@@ -1397,6 +1659,8 @@ export const QuranProvider = ({ children }) => {
       fetchCustomUrls,
       setThemePreference,
       setLanguagePreference,
+  searchQuran,
+  searchQuran,
       setPrimaryAudioEnabled,
       setSupplementalAudioEnabled,
       toggleBookmark,

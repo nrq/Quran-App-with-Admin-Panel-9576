@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion } from 'framer-motion';
 import * as FiIcons from 'react-icons/fi';
+import toast from 'react-hot-toast';
 import SafeIcon from '../common/SafeIcon';
 import { useQuranAudio, useQuranData } from '../contexts/QuranContext';
 
@@ -17,7 +18,7 @@ const THEME_PLAYER_STYLES = {
 
 const AudioPlayer = ({ verses, surah, surahNumber, onScrollToAyah }) => {
   const { currentAudio, playingAyah, isPaused, playAudio, pauseAudio, resumeAudio } = useQuranAudio();
-  const { theme } = useQuranData();
+  const { theme, getSupplementalAudioUrl } = useQuranData();
 
   const [isVisible, setIsVisible] = useState(false);
   const [currentVerse, setCurrentVerse] = useState(null);
@@ -127,6 +128,65 @@ const AudioPlayer = ({ verses, surah, surahNumber, onScrollToAyah }) => {
     }
     return `${surah.id}:${currentVerse.verse_number}`;
   }, [surah, currentVerse]);
+
+  const handleShareCurrentAyah = useCallback(async () => {
+    if (!currentVerse || !surah) {
+      return;
+    }
+
+    const surahId = surah.id;
+    const ayahNumber = currentVerse.verse_number;
+    const arabicText = currentVerse.text_uthmani || '';
+    const translationText = currentVerse.translations?.[0]?.text || '';
+    const tafseerUrl = getSupplementalAudioUrl
+      ? getSupplementalAudioUrl(surahId, ayahNumber)
+      : null;
+    const appUrl = `https://dq.nurulquran.com/surah/${surahId}?ayah=${ayahNumber}`;
+
+    const shareSections = [
+      `Surah ${surah.name_simple || surah.id} (${surahId}:${ayahNumber})`,
+      arabicText ? `Arabic:\n${arabicText}` : null,
+      translationText ? `Translation:\n${translationText}` : null,
+      tafseerUrl ? `Tafseer audio:\n${tafseerUrl}` : null,
+      `Listen in the NurulQuran app:\n${appUrl}`
+    ].filter(Boolean);
+
+    const sharePayload = {
+      title: `NurulQuran ${surahId}:${ayahNumber}`,
+      text: shareSections.join('\n\n'),
+      url: appUrl
+    };
+
+    if (typeof navigator === 'undefined') {
+      toast.error('Sharing is not supported on this device.');
+      return;
+    }
+
+    if (navigator.share) {
+      try {
+        await navigator.share(sharePayload);
+      } catch (error) {
+        if (error?.name !== 'AbortError') {
+          console.error('Share failed:', error);
+          toast.error('Unable to share this ayah right now.');
+        }
+      }
+      return;
+    }
+
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(sharePayload.text);
+        toast.success('Share details copied to clipboard.');
+      } catch (clipboardError) {
+        console.error('Clipboard copy failed:', clipboardError);
+        toast.error('Sharing is not supported on this device.');
+      }
+      return;
+    }
+
+    toast.error('Sharing is not supported on this device.');
+  }, [currentVerse, getSupplementalAudioUrl, surah]);
 
   useEffect(() => {
     const bar = progressBarRef.current;
@@ -372,13 +432,18 @@ const AudioPlayer = ({ verses, surah, surahNumber, onScrollToAyah }) => {
             </button>
           </div>
 
-          <span className="quran-text-pak text-base md:text-2xl truncate text-right min-w-0 overflow-hidden whitespace-nowrap text-white">
+          <button
+            type="button"
+            onClick={handleShareCurrentAyah}
+            className="quran-text-pak text-base md:text-2xl truncate text-right min-w-0 overflow-hidden whitespace-nowrap text-white bg-transparent border-none px-0 py-0 hover:text-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+            title="Share this ayah"
+          >
             {arabicPreview}
-          </span>
+          </button>
         </div>
       </div>
     );
-  }, [arabicPreview, currentVerse, handleNextAyah, handlePlayPause, handlePreviousAyah, handleScrollToAyah, handleScrollToTop, isPaused, surahReference]);
+  }, [arabicPreview, currentVerse, handleNextAyah, handlePlayPause, handlePreviousAyah, handleScrollToAyah, handleScrollToTop, handleShareCurrentAyah, isPaused, surahReference]);
 
   const playerStyle = THEME_PLAYER_STYLES[theme] || THEME_PLAYER_STYLES.light;
 

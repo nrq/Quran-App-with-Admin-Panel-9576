@@ -34,8 +34,8 @@ const LANGUAGE_CONFIG = {
   },
   Urdu: {
     code: 'ur',
-    translationEdition: 'ur.jalandhry',
-    label: 'Fateh Muhammad Jalandhry'
+    translationEdition: 'ur.junagarhi',
+    label: 'Ahmed Ali (Junagarhi)'
   },
   French: {
     code: 'fr',
@@ -1654,6 +1654,7 @@ export const QuranProvider = ({ children }) => {
       saveCustomUrl,
       getCustomUrlById,
       getAudioUrl,
+  getSupplementalAudioUrl,
       getTafseer,
       fetchSurahVerses,
       fetchCustomUrls,
@@ -1689,6 +1690,7 @@ export const QuranProvider = ({ children }) => {
       saveCustomUrl,
       getCustomUrlById,
       getAudioUrl,
+  getSupplementalAudioUrl,
       getTafseer,
       fetchSurahVerses,
       fetchCustomUrls,

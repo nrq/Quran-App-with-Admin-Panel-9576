@@ -28,6 +28,7 @@
     "@capacitor/network": "^7.0.2",
     "@capacitor/splash-screen": "^7.0.3",
     "@capacitor/status-bar": "^7.0.3",
+    "@emotion/is-prop-valid": "^1.4.0",
     "@questlabs/react-sdk": "^2.2.4",
     "axios": "^1.6.0",
     "date-fns": "4.1.0",

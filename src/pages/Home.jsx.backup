@@ -3,35 +3,15 @@ import { motion } from 'framer-motion';
 import SurahCard from '../components/SurahCard';
 import { useQuranData } from '../contexts/QuranContext';
 
-const THEME_TEXT_STYLES = {
-  green: 'text-emerald-950',
-  red: 'text-rose-950',
-  blue: 'text-blue-950',
-  light: 'text-slate-900',
-  dark: 'text-slate-50',
-  sepia: 'text-amber-950'
-};
-
-const THEME_SECONDARY_TEXT_STYLES = {
-  green: 'text-emerald-700',
-  red: 'text-rose-700',
-  blue: 'text-blue-700',
-  light: 'text-slate-600',
-  dark: 'text-slate-300',
-  sepia: 'text-amber-800'
-};
-
 const Home = () => {
-  const { surahs, loading, theme } = useQuranData();
-  const textStyle = THEME_TEXT_STYLES[theme] || THEME_TEXT_STYLES.green;
-  const secondaryTextStyle = THEME_SECONDARY_TEXT_STYLES[theme] || THEME_SECONDARY_TEXT_STYLES.green;
+  const { surahs, loading } = useQuranData();
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-96">
         <div className="text-center">
           <div className="loading-spinner mx-auto mb-4"></div>
-          <p className={secondaryTextStyle}>Loading Quran chapters...</p>
+          <p className="text-islamic-600">Loading Quran chapters...</p>
         </div>
       </div>
     );
@@ -44,11 +24,11 @@ const Home = () => {
         animate={{ opacity: 1, y: 0 }}
         className="text-center"
       >
-        <h1 className={`text-4xl font-bold mb-4 ${textStyle}`}>
+        <h1 className="text-4xl font-bold text-islamic-800 mb-4">
           القرآن الكريم
         </h1>
-        <p className={`text-xl mb-2 ${textStyle}`}>The Noble Quran</p>
-        <p className={secondaryTextStyle}>
+        <p className="text-xl text-islamic-600 mb-2">The Noble Quran</p>
+        <p className="text-islamic-500">
           Listen to the beautiful recitation of the Holy Quran with translations
         </p>
       </motion.div>

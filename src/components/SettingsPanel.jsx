@@ -170,7 +170,7 @@ const SettingsPanel = ({ isOpen, onClose }) => {
                   <SafeIcon icon={FiGlobe} className="text-islamic-gold" />
                   <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">Language</h3>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-4 gap-2">
                   {languageOptions.map((option) => {
                     const isActive = language === option;
                     return (
@@ -178,7 +178,7 @@ const SettingsPanel = ({ isOpen, onClose }) => {
                         key={option}
                         type="button"
                         onClick={() => setLanguagePreference(option)}
-                        className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                        className={`px-2 py-2 rounded-lg border text-xs font-medium transition-colors ${
                           isActive
                             ? 'border-islamic-gold bg-islamic-50 text-islamic-gold'
                             : 'border-slate-200 text-slate-600 hover:border-islamic-gold/60'

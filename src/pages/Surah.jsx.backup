@@ -9,46 +9,10 @@ import { useQuranAudio, useQuranData } from '../contexts/QuranContext';
 
 const { FiArrowLeft, FiBook, FiMapPin } = FiIcons;
 
-const THEME_CARD_STYLES = {
-  green: 'bg-emerald-50/50 border border-emerald-200',
-  red: 'bg-rose-50/50 border border-rose-200',
-  blue: 'bg-blue-50/50 border border-blue-200',
-  light: 'bg-white border border-slate-200',
-  dark: 'bg-slate-800/50 border border-slate-700',
-  sepia: 'bg-amber-50/50 border border-amber-300'
-};
-
-const THEME_TEXT_STYLES = {
-  green: 'text-emerald-950',
-  red: 'text-rose-950',
-  blue: 'text-blue-950',
-  light: 'text-slate-900',
-  dark: 'text-slate-50',
-  sepia: 'text-amber-950'
-};
-
-const THEME_SECONDARY_TEXT_STYLES = {
-  green: 'text-emerald-700',
-  red: 'text-rose-700',
-  blue: 'text-blue-700',
-  light: 'text-slate-600',
-  dark: 'text-slate-300',
-  sepia: 'text-amber-800'
-};
-
-const THEME_LINK_STYLES = {
-  green: 'text-emerald-600 hover:text-emerald-800',
-  red: 'text-rose-600 hover:text-rose-800',
-  blue: 'text-blue-600 hover:text-blue-800',
-  light: 'text-slate-600 hover:text-slate-800',
-  dark: 'text-slate-300 hover:text-slate-100',
-  sepia: 'text-amber-700 hover:text-amber-900'
-};
-
 const Surah = () => {
   const { surahNumber } = useParams();
   const location = useLocation();
-  const { surahs, fetchSurahVerses, setCurrentSurah, theme } = useQuranData();
+  const { surahs, fetchSurahVerses, setCurrentSurah } = useQuranData();
   const { playingAyah } = useQuranAudio();
   const [verses, setVerses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -134,17 +98,12 @@ const Surah = () => {
     }
   }, [fetchSurahVerses, setCurrentSurah, surahNumber, surahs]);
 
-  const cardStyle = THEME_CARD_STYLES[theme] || THEME_CARD_STYLES.green;
-  const textStyle = THEME_TEXT_STYLES[theme] || THEME_TEXT_STYLES.green;
-  const secondaryTextStyle = THEME_SECONDARY_TEXT_STYLES[theme] || THEME_SECONDARY_TEXT_STYLES.green;
-  const linkStyle = THEME_LINK_STYLES[theme] || THEME_LINK_STYLES.green;
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-96">
         <div className="text-center">
           <div className="loading-spinner mx-auto mb-4"></div>
-          <p className={secondaryTextStyle}>Loading verses...</p>
+          <p className="text-islamic-600">Loading verses...</p>
         </div>
       </div>
     );
@@ -153,8 +112,8 @@ const Surah = () => {
   if (!surah) {
     return (
       <div className="text-center py-12">
-        <p className={secondaryTextStyle}>Surah not found</p>
-        <Link to="/" className={`hover:underline mt-4 inline-block ${linkStyle}`}>
+        <p className="text-islamic-600">Surah not found</p>
+        <Link to="/" className="text-islamic-gold hover:underline mt-4 inline-block">
           Return to Home
         </Link>
       </div>
@@ -178,11 +137,11 @@ const Surah = () => {
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className={`rounded-xl p-6 shadow-lg ${cardStyle}`}
+          className="bg-white rounded-xl p-6 shadow-lg"
         >
           <Link
             to="/"
-            className={`inline-flex items-center space-x-2 mb-6 transition-colors ${linkStyle}`}
+            className="inline-flex items-center space-x-2 text-islamic-600 hover:text-islamic-800 mb-6 transition-colors"
           >
             <SafeIcon icon={FiArrowLeft} />
             <span>Back to Surahs</span>
@@ -194,9 +153,9 @@ const Surah = () => {
                 <span className="text-white font-bold text-xl">{surah.id}</span>
               </div>
               <div>
-                <h1 className={`text-3xl font-bold ${textStyle}`}>{surah.name_simple}</h1>
-                <p className={`text-lg ${textStyle}`}>{surah.translated_name.name}</p>
-                <div className={`flex items-center space-x-4 text-sm mt-2 ${secondaryTextStyle}`}>
+                <h1 className="text-3xl font-bold text-islamic-800">{surah.name_simple}</h1>
+                <p className="text-islamic-600 text-lg">{surah.translated_name.name}</p>
+                <div className="flex items-center space-x-4 text-islamic-500 text-sm mt-2">
                   <div className="flex items-center space-x-1">
                     <SafeIcon icon={FiMapPin} className="text-xs" />
                     <span>{surah.revelation_place}</span>
@@ -210,7 +169,7 @@ const Surah = () => {
             </div>
 
             <div className="text-right">
-              <div className={`quran-text-pak text-4xl ${textStyle}`}>
+              <div className="quran-text-pak text-4xl text-islamic-800">
                 {surah.name_arabic}
               </div>
             </div>

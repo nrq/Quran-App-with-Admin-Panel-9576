@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
 import { useQuranData } from '../contexts/QuranContext';
 import './ExpandableSearch.css';
 
-const { FiSearch } = FiIcons;
+const { FiSearch, FiArrowRight } = FiIcons;
 
 // Theme-specific styling for the expandable search component
 const THEME_STYLES = {
@@ -87,10 +88,15 @@ const debounce = (func, wait) => {
  * @param {string} [props.className=''] - Additional CSS classes
  */
 const ExpandableSearch = ({ variant = 'nav', className = '' }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  
   // State management for expanded/collapsed states
   const [isExpanded, setIsExpanded] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isAnimating, setIsAnimating] = useState(false);
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
   const inputRef = useRef(null);
   const containerRef = useRef(null);
   const searchButtonRef = useRef(null);
@@ -100,8 +106,8 @@ const ExpandableSearch = ({ variant = 'nav', className = '' }) => {
   const isTogglingRef = useRef(false);
   const animationTimeoutRef = useRef(null);
   
-  // Get current theme from context
-  const { theme } = useQuranData();
+  // Get current theme and search function from context
+  const { theme, searchQuran } = useQuranData();
   
   // Memoize theme styles to prevent recalculation on every render
   const themeStyles = useMemo(() => {
@@ -139,6 +145,8 @@ const ExpandableSearch = ({ variant = 'nav', className = '' }) => {
   const collapseSearch = useCallback(() => {
     setIsExpanded(false);
     setSearchQuery('');
+    setSearchResults([]);
+    setIsSearching(false);
     // Return focus to the search button after closing
     setTimeout(() => {
       searchButtonRef.current?.focus();
@@ -159,12 +167,70 @@ const ExpandableSearch = ({ variant = 'nav', className = '' }) => {
    */
   const handleSearchSubmit = useCallback((e) => {
     e.preventDefault();
-    if (searchQuery.trim()) {
-      // Search functionality will be implemented here
-      console.log('Searching for:', searchQuery);
+    if (searchQuery.trim() && searchResults.length > 0) {
+      // Navigate to first result
+      const firstResult = searchResults[0];
+      if (firstResult.type === 'ayah') {
+        navigate(`/surah/${firstResult.surahNumber}?ayah=${firstResult.ayahNumber}`);
+      } else if (firstResult.type === 'surah') {
+        navigate(`/surah/${firstResult.surahNumber}`);
+      }
+      collapseSearch();
     }
-  }, [searchQuery]);
+  }, [searchQuery, searchResults, navigate, collapseSearch]);
+  
+  /**
+   * Handle selecting a search result
+   */
+  const handleSelectResult = useCallback((result) => {
+    if (!result) return;
+    
+    if (result.type === 'ayah') {
+      navigate(`/surah/${result.surahNumber}?ayah=${result.ayahNumber}`);
+    } else if (result.type === 'surah') {
+      navigate(`/surah/${result.surahNumber}`);
+    }
+    collapseSearch();
+  }, [navigate, collapseSearch]);
 
+  /**
+   * Perform search when query changes
+   */
+  useEffect(() => {
+    let isCancelled = false;
+
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return undefined;
+    }
+
+    setIsSearching(true);
+
+    const timeoutId = setTimeout(async () => {
+      try {
+        const matches = await searchQuran(searchQuery);
+        if (!isCancelled) {
+          setSearchResults(Array.isArray(matches) ? matches : []);
+        }
+      } catch (error) {
+        if (!isCancelled) {
+          console.error('Search error:', error);
+          setSearchResults([]);
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsSearching(false);
+        }
+      }
+    }, 300);
+
+    return () => {
+      isCancelled = true;
+      clearTimeout(timeoutId);
+    };
+  }, [searchQuery, searchQuran]);
+  
   /**
    * Focus management - focus input when expanding
    * Announce state changes to screen readers
@@ -183,6 +249,13 @@ const ExpandableSearch = ({ variant = 'nav', className = '' }) => {
       announceToScreenReader('Search collapsed.');
     }
   }, [isExpanded]);
+  
+  /**
+   * Close search when navigating to a new page
+   */
+  useEffect(() => {
+    collapseSearch();
+  }, [location.pathname, location.search, collapseSearch]);
 
   /**
    * Announce messages to screen readers using ARIA live region
@@ -255,6 +328,8 @@ const ExpandableSearch = ({ variant = 'nav', className = '' }) => {
       }
     };
   }, []);
+
+  const hasResults = searchQuery.trim() && (isSearching || searchResults.length > 0);
 
   return (
     <>
@@ -392,6 +467,77 @@ const ExpandableSearch = ({ variant = 'nav', className = '' }) => {
             </form>
           )}
         </div>
+        
+        {/* Search Results Dropdown */}
+        {isExpanded && hasResults && (
+          <div className="search-results-dropdown absolute left-0 right-0 top-full mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-2xl overflow-hidden max-h-96 overflow-y-auto z-50">
+            {isSearching ? (
+              <div className="px-4 py-6 text-center text-sm text-slate-500">
+                Searching...
+              </div>
+            ) : (
+              <ul className="divide-y divide-slate-100 dark:divide-slate-700">
+                {searchResults.map((result) => (
+                  <li key={result.id}>
+                    <button
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        handleSelectResult(result);
+                      }}
+                      onClick={() => handleSelectResult(result)}
+                      className="w-full text-left px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-islamic-gold transition-colors"
+                    >
+                      {result.type === 'ayah' ? (
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs uppercase tracking-wide text-islamic-gold font-semibold mb-1">
+                              Ayah • {result.surahNumber}:{result.ayahNumber}
+                            </p>
+                            <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 truncate">
+                              {result.surahName}
+                              {result.surahEnglishName ? ` • ${result.surahEnglishName}` : ''}
+                            </p>
+                            {result.snippet && (
+                              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300 quran-text-pak leading-relaxed line-clamp-2">
+                                {result.snippet}
+                              </p>
+                            )}
+                          </div>
+                          <SafeIcon icon={FiArrowRight} className="text-slate-400 mt-1 flex-shrink-0" />
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs uppercase tracking-wide text-slate-400 font-semibold mb-1">
+                              Surah • {result.surahNumber}
+                            </p>
+                            <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 truncate">
+                              {result.name}
+                              {result.englishName ? ` • ${result.englishName}` : ''}
+                            </p>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 quran-text-pak truncate">
+                              {result.arabicName}
+                            </p>
+                            <p className="text-xs text-slate-400 mt-1">
+                              {result.versesCount} ayat
+                            </p>
+                          </div>
+                          <SafeIcon icon={FiArrowRight} className="text-slate-400 flex-shrink-0" />
+                        </div>
+                      )}
+                    </button>
+                  </li>
+                ))}
+                {!searchResults.length && !isSearching && (
+                  <li className="px-4 py-6 text-center text-sm text-slate-500">
+                    No matches found. Try another search.
+                  </li>
+                )}
+              </ul>
+            )}
+          </div>
+        )}
       </div>
     </>
   );

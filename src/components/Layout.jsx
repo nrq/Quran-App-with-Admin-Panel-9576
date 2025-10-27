@@ -85,6 +85,7 @@ const Layout = () => {
   const location = useLocation();
   const { lastPlayedPosition, theme } = useQuranData();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
 
   const themeStyles = THEME_STYLES[theme] ?? DEFAULT_THEME_STYLE;
   const shellClasses = `min-h-screen transition-colors duration-300 ${themeStyles.shell}`;
@@ -108,13 +109,22 @@ const Layout = () => {
   useEffect(() => {
     setIsSettingsOpen(false);
   }, [location.pathname, location.search]);
+  
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 50);
+    };
+    
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   return (
     <div className={shellClasses}>
       <nav className={navClasses}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-6 h-16">
-            <Link to="/" className="flex items-center space-x-3">
+            <Link to="/" className={`flex items-center space-x-3 transition-opacity duration-300 ${isScrolled ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
               <div className={brandBadgeClasses}>
                 <SafeIcon icon={FiBook} className="text-white text-xl" />
               </div>
@@ -125,7 +135,7 @@ const Layout = () => {
               <ExpandableSearch variant="nav" />
             </div>
 
-            <div className="flex items-center space-x-4">
+            <div className={`flex items-center space-x-4 transition-opacity duration-300 ${isScrolled ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
               <button
                 type="button"
                 onClick={handleResumeLastAyah}
@@ -150,6 +160,19 @@ const Layout = () => {
           </div>
         </div>
       </nav>
+      
+      {/* Sticky Search Bar - Only visible when scrolled */}
+      <div className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 pointer-events-none'}`}>
+        <div className={`${navClasses} backdrop-blur-lg bg-white/95 dark:bg-slate-900/95`}>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-center h-16">
+              <div className="w-full max-w-2xl">
+                <ExpandableSearch variant="nav" className="w-full" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <motion.div

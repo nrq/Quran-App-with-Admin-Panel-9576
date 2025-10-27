@@ -11,17 +11,17 @@ const MAX_RECENT_SEARCHES = 5;
 
 const saveRecentSearch = (searchTerm) => {
   if (!searchTerm.trim()) return;
-  
+
   try {
     const stored = localStorage.getItem(RECENT_SEARCHES_KEY);
     const recentSearches = stored ? JSON.parse(stored) : [];
-    
+
     // Remove duplicate if exists
     const filtered = recentSearches.filter(term => term !== searchTerm);
-    
+
     // Add to beginning and limit to MAX_RECENT_SEARCHES
     const updated = [searchTerm, ...filtered].slice(0, MAX_RECENT_SEARCHES);
-    
+
     localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(updated));
   } catch (error) {
     console.error('Failed to save recent search:', error);
@@ -204,7 +204,7 @@ const SearchBar = ({ variant = 'global' }) => {
   const showRecentSearches = isExpanded && !hasQuery && isFocused && recentSearches.length > 0;
 
   const placeholderText = useMemo(
-    () => 'Search e.g. 15:20, Cave 44, كدأب',
+    () => 'Nis Last, Rahman 22, 15:20, Cave 44, كدأب',
     []
   );
 
@@ -229,12 +229,10 @@ const SearchBar = ({ variant = 'global' }) => {
     : 'bg-white border border-slate-200 shadow-2xl rounded-2xl px-5 py-4';
 
   const inputWrapperClasses = isNavVariant
-    ? `flex items-center gap-3 rounded-xl bg-white border border-slate-200 px-4 py-1.5 transition-all duration-200 ${
-        isFocused ? 'ring-2 ring-islamic-gold shadow-lg' : 'shadow-sm'
-      }`
-    : `flex items-center gap-3 rounded-xl bg-white border border-slate-200 px-4 py-2 transition-all duration-200 ${
-        isFocused ? 'ring-2 ring-islamic-gold shadow-lg' : 'shadow-sm'
-      }`;
+    ? `flex items-center gap-3 rounded-xl bg-white border border-slate-200 px-4 py-1.5 transition-all duration-200 ${isFocused ? 'ring-2 ring-islamic-gold shadow-lg' : 'shadow-sm'
+    }`
+    : `flex items-center gap-3 rounded-xl bg-white border border-slate-200 px-4 py-2 transition-all duration-200 ${isFocused ? 'ring-2 ring-islamic-gold shadow-lg' : 'shadow-sm'
+    }`;
 
   const resultsWrapperClasses = isNavVariant
     ? 'absolute left-1/2 top-full z-50 mt-3 w-[min(36rem,90vw)] -translate-x-1/2'
@@ -268,9 +266,8 @@ const SearchBar = ({ variant = 'global' }) => {
                   onBlur={handleBlur}
                   onKeyDown={handleKeyDown}
                   placeholder={placeholderText}
-                  className={`flex-1 bg-transparent text-slate-900 placeholder:text-slate-400 focus:outline-none ${
-                    isNavVariant ? 'text-sm md:text-base py-1' : 'text-sm md:text-base'
-                  }`}
+                  className={`flex-1 bg-transparent text-slate-900 placeholder:text-slate-400 focus:outline-none ${isNavVariant ? 'text-sm md:text-base py-1' : 'text-sm md:text-base'
+                    }`}
                   aria-label="Search Quran"
                 />
                 {hasQuery && (
@@ -342,7 +339,7 @@ const SearchBar = ({ variant = 'global' }) => {
             )}
 
             {showResults && (
-              <div className={`${resultsWrapperClasses} bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden max-h-96`}> 
+              <div className={`${resultsWrapperClasses} bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden max-h-96`}>
                 {isLoading ? (
                   <div className="px-6 py-8 text-center text-sm text-slate-500">Searching…</div>
                 ) : (
@@ -403,7 +400,7 @@ const SearchBar = ({ variant = 'global' }) => {
                         </li>
                       )}
                     </ul>
-                    
+
                     {results.length > 3 && (
                       <div className="border-t border-slate-100 p-4">
                         <button

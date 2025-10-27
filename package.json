@@ -11,6 +11,7 @@
     "validate:env": "node scripts/validate-env.js",
     "test:build": "node scripts/test-production-build.js",
     "test:firestore": "node scripts/test-firestore.js",
+    "generate:icons": "node scripts/generate-icons.js",
     "lint": "eslint .",
     "lint:error": "eslint . --quiet",
     "preview": "vite preview",
@@ -18,13 +19,22 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@capacitor/android": "^7.4.4",
+    "@capacitor/app": "^7.1.0",
+    "@capacitor/cli": "^7.4.4",
+    "@capacitor/core": "^7.4.4",
+    "@capacitor/filesystem": "^7.1.4",
+    "@capacitor/ios": "^7.4.4",
+    "@capacitor/network": "^7.0.2",
+    "@capacitor/splash-screen": "^7.0.3",
+    "@capacitor/status-bar": "^7.0.3",
     "@questlabs/react-sdk": "^2.2.4",
     "axios": "^1.6.0",
     "date-fns": "4.1.0",
     "echarts": "^5.5.0",
     "echarts-for-react": "^3.0.2",
-  "firebase": "^12.4.0",
-  "framer-motion": "^11.0.8",
+    "firebase": "^12.4.0",
+    "framer-motion": "^11.0.8",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-hot-toast": "^2.4.1",
@@ -32,6 +42,7 @@
     "react-router-dom": "^7.1.0"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
     "@eslint/js": "^9.9.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",
@@ -46,6 +57,7 @@
     "jsdom": "^27.0.1",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
+    "typescript": "^5.9.3",
     "vite": "^5.4.2",
     "vitest": "^4.0.2"
   }

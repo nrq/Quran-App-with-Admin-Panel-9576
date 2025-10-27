@@ -5,6 +5,7 @@ import SafeIcon from '../common/SafeIcon';
 import { getTotalVersesCount } from '../data/quran-data';
 import { db } from '../lib/firebase';
 import { onSnapshot, collection } from 'firebase/firestore';
+import { Capacitor } from '@capacitor/core';
 
 const { FiWifi, FiWifiOff, FiCheck, FiCloud, FiCloudOff } = FiIcons;
 
@@ -18,8 +19,17 @@ const OfflineIndicator = () => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
 
+    // Listen to browser online/offline events
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
+
+    // Listen to Capacitor network status changes (for mobile)
+    const handleNetworkChange = (event) => {
+      if (event.detail && typeof event.detail.connected !== 'undefined') {
+        setIsOnline(event.detail.connected);
+      }
+    };
+    window.addEventListener('networkStatusChange', handleNetworkChange);
 
     // Test offline data loading
     const testOfflineData = async () => {
@@ -60,6 +70,7 @@ const OfflineIndicator = () => {
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('networkStatusChange', handleNetworkChange);
       if (unsubscribe) {
         unsubscribe();
       }

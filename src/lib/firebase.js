@@ -3,8 +3,10 @@ import { getAuth } from 'firebase/auth';
 import { 
   initializeFirestore, 
   persistentLocalCache,
-  persistentMultipleTabManager
+  persistentMultipleTabManager,
+  persistentSingleTabManager
 } from 'firebase/firestore';
+import { Capacitor } from '@capacitor/core';
 
 // Firebase configuration using environment variables
 const firebaseConfig = {
@@ -40,13 +42,16 @@ export const auth = getAuth(app);
 
 // Initialize Cloud Firestore with offline persistence enabled
 // This allows the app to work offline and sync when connection is restored
-// Using persistentMultipleTabManager to support multiple tabs
+// Use single tab manager for mobile platforms, multi-tab for web
+const isNativePlatform = Capacitor.isNativePlatform();
 export const db = initializeFirestore(app, {
   localCache: persistentLocalCache({
-    tabManager: persistentMultipleTabManager()
+    tabManager: isNativePlatform 
+      ? persistentSingleTabManager() 
+      : persistentMultipleTabManager()
   })
 });
 
-console.log('Firestore initialized with offline persistence and multi-tab support');
+console.log(`Firestore initialized with offline persistence (${isNativePlatform ? 'mobile' : 'web multi-tab'} mode)`);
 
 export default app;

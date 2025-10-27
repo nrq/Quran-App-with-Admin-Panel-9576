@@ -109,8 +109,9 @@ const SettingsPanel = ({ isOpen, onClose }) => {
                       <button
                         type="button"
                         onClick={handleViewAllBookmarks}
-                        className="w-full px-4 py-2 text-sm font-medium text-islamic-gold hover:text-islamic-700 transition-colors"
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold text-green-600 bg-green-50 border border-green-200 rounded-lg transition-all shadow-[0_14px_32px_-18px_rgba(34,197,94,0.45)] hover:bg-green-100 hover:text-green-700 hover:border-green-300 hover:shadow-[0_24px_48px_-18px_rgba(22,163,74,0.55)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-300"
                       >
+                        <SafeIcon icon={FiBookmark} className="text-green-500" />
                         View all bookmarks
                       </button>
                     )}

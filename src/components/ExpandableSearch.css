@@ -9,18 +9,18 @@
 .expandable-search {
   /* Create a new stacking context for better performance */
   isolation: isolate;
-  
+
   /* Enable GPU acceleration */
   transform: translateZ(0);
   -webkit-transform: translateZ(0);
-  
+
   /* Optimize rendering */
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
-  
+
   /* Hint to browser about upcoming changes */
   will-change: auto;
-  
+
   /* Ensure proper z-index for dropdown */
   position: relative;
   z-index: 100;
@@ -40,7 +40,7 @@
 .expandable-search button {
   /* Use transform for hover effects instead of layout properties */
   transition: background-color 200ms ease-out, transform 150ms ease-out;
-  
+
   /* Enable GPU acceleration */
   transform: translateZ(0);
   -webkit-transform: translateZ(0);
@@ -51,7 +51,7 @@
   /* Enable GPU acceleration for smooth focus transitions */
   transform: translateZ(0);
   -webkit-transform: translateZ(0);
-  
+
   /* Optimize text rendering */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -59,6 +59,7 @@
 
 /* Reduce motion for users who prefer it */
 @media (prefers-reduced-motion: reduce) {
+
   .expandable-search,
   .expandable-search *,
   .expandable-search *::before,
@@ -76,7 +77,7 @@
     /* Reduce complexity on mobile for better performance */
     -webkit-tap-highlight-color: transparent;
   }
-  
+
   .expandable-search button {
     /* Optimize touch interactions */
     touch-action: manipulation;
@@ -103,6 +104,7 @@
     opacity: 0;
     transform: translateY(-10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);

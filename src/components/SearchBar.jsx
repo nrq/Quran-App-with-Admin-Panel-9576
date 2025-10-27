@@ -115,25 +115,29 @@ const SearchBar = ({ variant = 'global' }) => {
 
   const isNavVariant = variant === 'nav';
 
+  const isCompact = !isNavVariant && !isFocused && !hasQuery;
+
   const containerClasses = isNavVariant
     ? 'relative w-full max-w-xl pointer-events-auto'
-    : 'sticky top-4 z-40 flex justify-center w-full';
+    : `sticky ${isCompact ? 'top-2' : 'top-4'} z-40 flex justify-center w-full`;
 
   const innerWidthClasses = isNavVariant
     ? 'w-full transition-all duration-300'
-    : `w-full transition-all duration-300 ${isFocused || hasQuery ? 'max-w-3xl' : 'max-w-2xl'}`;
+    : `w-full transition-all duration-300 ${
+        isFocused || hasQuery ? 'max-w-3xl' : isCompact ? 'max-w-sm' : 'max-w-2xl'
+      }`;
 
   const cardClasses = isNavVariant
     ? 'backdrop-blur-lg bg-white/80 dark:bg-slate-900/80 border border-white/60 dark:border-slate-700/70 shadow-xl rounded-2xl px-4 py-2'
-    : 'backdrop-blur-lg bg-white/70 dark:bg-slate-900/70 border border-white/40 dark:border-slate-700/60 shadow-xl rounded-2xl px-6 py-4';
+    : `backdrop-blur-lg ${isCompact ? 'bg-white/80 px-3 py-1.5' : 'bg-white/70 px-6 py-4'} dark:bg-slate-900/70 border border-white/40 dark:border-slate-700/60 shadow-xl rounded-2xl`;
 
   const inputWrapperClasses = isNavVariant
     ? `flex items-center gap-3 rounded-xl bg-white/85 dark:bg-slate-900/85 border border-slate-200/80 dark:border-slate-700 px-4 py-1.5 transition-all duration-200 ${
         isFocused ? 'ring-2 ring-islamic-gold shadow-lg' : 'shadow-sm'
       }`
-    : `flex items-center gap-3 rounded-xl bg-white/80 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-700 px-4 py-2 transition-all duration-200 ${
-        isFocused ? 'ring-2 ring-islamic-gold shadow-lg' : 'shadow-sm'
-      }`;
+    : `flex items-center gap-3 rounded-xl bg-white/80 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-700 px-4 ${
+        isCompact ? 'py-1.5' : 'py-2'
+      } transition-all duration-200 ${isFocused ? 'ring-2 ring-islamic-gold shadow-lg' : 'shadow-sm'}`;
 
   const resultsWrapperClasses = isNavVariant
     ? 'absolute left-1/2 top-full z-50 mt-3 w-[min(36rem,90vw)] -translate-x-1/2'
@@ -156,7 +160,7 @@ const SearchBar = ({ variant = 'global' }) => {
               onKeyDown={handleKeyDown}
               placeholder={placeholderText}
               className={`flex-1 bg-transparent placeholder:text-slate-400 focus:outline-none ${
-                isNavVariant ? 'text-sm md:text-base py-1' : 'text-sm md:text-base'
+                isNavVariant ? 'text-sm md:text-base py-1' : isCompact ? 'text-sm' : 'text-sm md:text-base'
               }`}
               aria-label="Search Quran"
             />

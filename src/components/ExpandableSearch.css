@@ -1,0 +1,89 @@
+/**
+ * Performance-optimized CSS for ExpandableSearch component
+ * 
+ * These styles use hardware-accelerated properties and optimizations
+ * to ensure smooth animations across different devices and browsers.
+ */
+
+/* Enable hardware acceleration for the expandable search container */
+.expandable-search {
+  /* Create a new stacking context for better performance */
+  isolation: isolate;
+  
+  /* Enable GPU acceleration */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  
+  /* Optimize rendering */
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  
+  /* Hint to browser about upcoming changes */
+  will-change: auto;
+}
+
+/* Optimize transitions during animation */
+.expandable-search.animating {
+  will-change: width, opacity;
+}
+
+/* Reset will-change after animation completes */
+.expandable-search:not(.animating) {
+  will-change: auto;
+}
+
+/* Optimize button hover states */
+.expandable-search button {
+  /* Use transform for hover effects instead of layout properties */
+  transition: background-color 200ms ease-out, transform 150ms ease-out;
+  
+  /* Enable GPU acceleration */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+}
+
+/* Optimize input field rendering */
+.expandable-search input {
+  /* Enable GPU acceleration for smooth focus transitions */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  
+  /* Optimize text rendering */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  .expandable-search,
+  .expandable-search *,
+  .expandable-search *::before,
+  .expandable-search *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Optimize for mobile devices */
+@media (max-width: 640px) {
+  .expandable-search {
+    /* Reduce complexity on mobile for better performance */
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  .expandable-search button {
+    /* Optimize touch interactions */
+    touch-action: manipulation;
+  }
+}
+
+/* Optimize for high refresh rate displays */
+@media (min-resolution: 120dpi) {
+  .expandable-search {
+    /* Ensure smooth animations on high-DPI displays */
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+  }
+}

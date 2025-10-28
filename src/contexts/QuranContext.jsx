@@ -625,6 +625,32 @@ export const QuranProvider = ({ children }) => {
     toast.success('Bookmark updated');
   }, []);
 
+  const cacheAudioIfPossible = useCallback(async (url) => {
+    if (!url || typeof url !== 'string') {
+      return;
+    }
+
+    if (typeof window === 'undefined' || !('caches' in window)) {
+      return;
+    }
+
+    try {
+      const cache = await caches.open('dq-audio-v1');
+      const existing = await cache.match(url);
+      if (!existing) {
+        const response = await fetch(url, { mode: 'no-cors', credentials: 'omit' });
+        if (response && (response.ok || response.type === 'opaque')) {
+          await cache.put(url, response.clone());
+        }
+      }
+    } catch (error) {
+      console.warn('Audio cache skip:', {
+        url,
+        error: error?.message || error
+      });
+    }
+  }, []);
+
   const fetchTranslationForSurah = useCallback(async (languageKey, surahNumber) => {
     const resolveTranslation = async (languageKeyToUse, allowFallback) => {
       const languageMeta = LANGUAGE_CONFIG[languageKeyToUse] || LANGUAGE_CONFIG[DEFAULT_LANGUAGE];
@@ -1191,8 +1217,9 @@ export const QuranProvider = ({ children }) => {
       supplementalAudioPhaseRef.current = 'primary';
       pendingSupplementalUrlRef.current = supplementalUrl;
 
+      const currentSurahData = surahs.find((surah) => surah.id === normalizedSurahNumber);
+
       const advanceToNextOrStop = () => {
-        const currentSurahData = surahs.find((surah) => surah.id === normalizedSurahNumber);
         const shouldAutoAdvance =
           autoPlayNext && currentSurahData && normalizedAyahNumber < currentSurahData.verses_count;
 
@@ -1297,11 +1324,19 @@ export const QuranProvider = ({ children }) => {
       };
 
       if (!shouldPlayPrimary) {
+        cacheAudioIfPossible(supplementalUrl);
+        if (currentSurahData && normalizedAyahNumber < currentSurahData.verses_count) {
+          const nextAyahNumber = normalizedAyahNumber + 1;
+          if (enableSupplementalAudio) {
+            const nextSupplementalUrl = getSupplementalAudioUrl(normalizedSurahNumber, nextAyahNumber);
+            cacheAudioIfPossible(nextSupplementalUrl);
+          }
+        }
         playSupplementalAudio(true);
         return;
       }
 
-  const audioUrl = getAudioUrl(normalizedSurahNumber, normalizedAyahNumber);
+    const audioUrl = getAudioUrl(normalizedSurahNumber, normalizedAyahNumber);
       const loadingToastId = toast.loading('Loading audio...');
       const audio = new Audio(audioUrl);
       audio.preload = 'auto';
@@ -1363,6 +1398,23 @@ export const QuranProvider = ({ children }) => {
       audioRef.current = audio;
       setCurrentAudio(audio);
 
+      cacheAudioIfPossible(audioUrl);
+      if (supplementalUrl) {
+        cacheAudioIfPossible(supplementalUrl);
+      }
+
+      if (currentSurahData && normalizedAyahNumber < currentSurahData.verses_count) {
+        const nextAyahNumber = normalizedAyahNumber + 1;
+        if (shouldPlayPrimary) {
+          const nextPrimaryUrl = getAudioUrl(normalizedSurahNumber, nextAyahNumber);
+          cacheAudioIfPossible(nextPrimaryUrl);
+        }
+        if (enableSupplementalAudio) {
+          const nextSupplementalUrl = getSupplementalAudioUrl(normalizedSurahNumber, nextAyahNumber);
+          cacheAudioIfPossible(nextSupplementalUrl);
+        }
+      }
+
       const playPromise = audio.play();
       if (playPromise) {
         playPromise.catch((error) => {
@@ -1383,6 +1435,7 @@ export const QuranProvider = ({ children }) => {
       }
     },
     [
+      cacheAudioIfPossible,
       destroyCurrentAudio,
       enablePrimaryAudio,
       enableSupplementalAudio,

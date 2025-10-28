@@ -141,7 +141,7 @@ const AudioPlayer = ({ verses, surah, surahNumber, onScrollToAyah }) => {
     const tafseerUrl = getSupplementalAudioUrl
       ? getSupplementalAudioUrl(surahId, ayahNumber)
       : null;
-    const appUrl = `https://dq.nurulquran.com/surah/${surahId}?ayah=${ayahNumber}`;
+  const appUrl = `https://dq.nurulquran.com/#/surah/${surahId}?ayah=${ayahNumber}`;
 
     const shareSections = [
       `Surah ${surah.name_simple || surah.id} (${surahId}:${ayahNumber})`,

@@ -124,6 +124,7 @@ export const QuranProvider = ({ children }) => {
   const pendingSupplementalUrlRef = useRef(null);
   const searchIndexRef = useRef(null);
   const searchIndexPromiseRef = useRef(null);
+  const translationPrefetchRef = useRef(false);
 
   const persistAudioPreferences = useCallback((primaryEnabled, supplementalEnabled) => {
     try {

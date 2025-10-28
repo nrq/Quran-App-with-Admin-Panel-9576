@@ -22,6 +22,11 @@ import {
   where
 } from 'firebase/firestore';
 import { handleFirebaseError, logFirebaseError } from '../utils/firebaseErrorHandler';
+import {
+  getLocalTranslationLabel,
+  hasLocalTranslation,
+  loadLocalTranslationForSurah
+} from '../data/localTranslations';
 
 const SUPPORTED_THEMES = ['green', 'red', 'blue', 'light', 'dark', 'sepia'];
 const DEFAULT_THEME = 'light';
@@ -256,6 +261,37 @@ export const QuranProvider = ({ children }) => {
         }
       } catch (error) {
         console.error('Failed to restore cached translation:', error);
+      }
+
+      if (hasLocalTranslation(edition)) {
+        try {
+          const local = await loadLocalTranslationForSurah(edition, surahNumber);
+
+          if (local?.entries) {
+            const normalized = {
+              edition,
+              languageKey: languageKeyToUse,
+              name: getLocalTranslationLabel(edition) || languageMeta.label,
+              entries: local.entries
+            };
+
+            translationsCacheRef.current[cacheKey] = normalized;
+
+            try {
+              localStorage.setItem(storageKey, JSON.stringify(normalized));
+            } catch (storageError) {
+              console.error('Failed to persist translation cache:', storageError);
+            }
+
+            return normalized;
+          }
+        } catch (localError) {
+          console.warn('Local translation load failed, attempting remote fallback', {
+            edition,
+            surahNumber,
+            error: localError?.message || localError
+          });
+        }
       }
 
       try {
@@ -875,6 +911,81 @@ export const QuranProvider = ({ children }) => {
       logFirebaseError('Fetch Updated Audio Mapping', error);
     }
   }, []);
+
+  useEffect(() => {
+    if (!surahs.length || translationPrefetchRef.current) {
+      return;
+    }
+
+    translationPrefetchRef.current = true;
+    let canceled = false;
+    const languagesToPrefetch = ['Urdu', 'English'];
+    const scheduledIds = new Set();
+
+    const schedulePrefetch = (index) => {
+      if (canceled || index >= surahs.length) {
+        return;
+      }
+
+      const execute = async () => {
+        if (canceled) {
+          return;
+        }
+
+        const surah = surahs[index];
+        if (!surah) {
+          schedulePrefetch(index + 1);
+          return;
+        }
+
+        for (const languageKey of languagesToPrefetch) {
+          if (canceled) {
+            break;
+          }
+
+          try {
+            await fetchTranslationForSurah(languageKey, surah.id);
+          } catch (error) {
+            console.warn('Background translation prefetch failed:', {
+              language: languageKey,
+              surahId: surah.id,
+              error: error?.message || error
+            });
+          }
+        }
+
+        schedulePrefetch(index + 1);
+      };
+
+      if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
+        const idleId = window.requestIdleCallback(() => {
+          scheduledIds.delete(idleId);
+          execute();
+        });
+        scheduledIds.add(idleId);
+      } else {
+        const timeoutId = setTimeout(() => {
+          scheduledIds.delete(timeoutId);
+          execute();
+        }, 150);
+        scheduledIds.add(timeoutId);
+      }
+    };
+
+    schedulePrefetch(0);
+
+    return () => {
+      canceled = true;
+      scheduledIds.forEach((id) => {
+        if (typeof window !== 'undefined' && typeof window.cancelIdleCallback === 'function') {
+          window.cancelIdleCallback(id);
+        } else {
+          clearTimeout(id);
+        }
+      });
+      scheduledIds.clear();
+    };
+  }, [fetchTranslationForSurah, surahs]);
 
   const updateAudioMappingsWithUrl = useCallback(async (urlId) => {
     try {

@@ -160,6 +160,11 @@ const SearchResults = ({ onOpenSettings }) => {
                           {result.snippet}
                         </p>
                       )}
+                      {result.translationSnippet && (
+                        <p className="text-sm text-slate-600 leading-relaxed mt-3">
+                          {result.translationSnippet}
+                        </p>
+                      )}
                     </div>
                     <SafeIcon icon={FiArrowRight} className="text-slate-400 mt-1 flex-shrink-0" />
                   </div>

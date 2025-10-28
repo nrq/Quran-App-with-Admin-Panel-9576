@@ -13,7 +13,8 @@ const {
   FiHome,
   FiExternalLink,
   FiVolume2,
-  FiHeadphones
+  FiHeadphones,
+  FiSearch
 } = FiIcons;
 
 const themeOptions = ['green', 'red', 'blue', 'light', 'dark', 'sepia'];
@@ -30,7 +31,9 @@ const SettingsPanel = ({ isOpen, onClose }) => {
     enablePrimaryAudio,
     enableSupplementalAudio,
     setPrimaryAudioEnabled,
-    setSupplementalAudioEnabled
+    setSupplementalAudioEnabled,
+    includeTranslationsInSearch,
+    setSearchTranslationsEnabled
   } = useQuranData();
 
   const topBookmarks = useMemo(() => bookmarks.slice(0, 3), [bookmarks]);
@@ -189,6 +192,42 @@ const SettingsPanel = ({ isOpen, onClose }) => {
                     );
                   })}
                 </div>
+              </section>
+
+              <section>
+                <div className="flex items-center gap-2 mb-4">
+                  <SafeIcon icon={FiSearch} className="text-islamic-gold" />
+                  <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">Search</h3>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={includeTranslationsInSearch}
+                  onClick={() => setSearchTranslationsEnabled(!includeTranslationsInSearch)}
+                  className={`w-full flex items-center justify-between gap-4 rounded-lg border px-4 py-3 transition-colors ${
+                    includeTranslationsInSearch
+                      ? 'border-islamic-gold bg-islamic-50'
+                      : 'border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  <div className="text-left">
+                    <p className="text-sm font-semibold text-slate-700">Include translations in search</p>
+                    <p className="text-xs text-slate-500">
+                      Find matches in the selected translation along with Arabic text.
+                    </p>
+                  </div>
+                  <span
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      includeTranslationsInSearch ? 'bg-islamic-gold' : 'bg-slate-300'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                        includeTranslationsInSearch ? 'translate-x-5' : 'translate-x-1'
+                      }`}
+                    />
+                  </span>
+                </button>
               </section>
 
               <section>

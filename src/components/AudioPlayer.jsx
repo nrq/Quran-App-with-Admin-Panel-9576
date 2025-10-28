@@ -459,7 +459,7 @@ const AudioPlayer = ({ verses, surah, surahNumber, onScrollToAyah }) => {
       <div className="relative">
         <div
           ref={progressContainerRef}
-          className="absolute left-0 right-0 top-0 z-10 h-5 cursor-grab select-none touch-none"
+          className="absolute left-0 right-0 top-[1px] z-10 h-5 cursor-grab select-none touch-none"
         >
           <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-[0.15rem] rounded-full bg-emerald-100" />
           <div

@@ -24,7 +24,7 @@ import {
 import { handleFirebaseError, logFirebaseError } from '../utils/firebaseErrorHandler';
 
 const SUPPORTED_THEMES = ['green', 'red', 'blue', 'light', 'dark', 'sepia'];
-const DEFAULT_THEME = 'green';
+const DEFAULT_THEME = 'light';
 
 const LANGUAGE_CONFIG = {
   English: {
@@ -49,7 +49,7 @@ const LANGUAGE_CONFIG = {
   }
 };
 
-const DEFAULT_LANGUAGE = 'English';
+const DEFAULT_LANGUAGE = 'Urdu';
 
 const ARABIC_DIACRITICS_REGEX = /[\u0610-\u061A\u064B-\u065F\u06D6-\u06ED]/g;
 const ARABIC_LETTER_REGEX = /[\u0600-\u06FF]/;
@@ -57,6 +57,7 @@ const ARABIC_LETTER_REGEX = /[\u0600-\u06FF]/;
 const stripArabicDiacritics = (text = '') => text.replace(ARABIC_DIACRITICS_REGEX, '');
 
 const AUDIO_PREFERENCES_STORAGE_KEY = 'quran_audio_preferences';
+const SEARCH_TRANSLATIONS_PREF_KEY = 'quran_search_include_translations';
 
 const buildTranslationStorageKey = (edition, surahNumber) => `quran_translation_${edition}_${surahNumber}`;
 
@@ -101,6 +102,21 @@ export const QuranProvider = ({ children }) => {
   const [enablePrimaryAudio, setEnablePrimaryAudio] = useState(true);
   const [enableSupplementalAudio, setEnableSupplementalAudio] = useState(true);
   const [bookmarks, setBookmarks] = useState([]);
+  const [includeTranslationsInSearch, setIncludeTranslationsInSearch] = useState(() => {
+    if (typeof window === 'undefined') {
+      return true;
+    }
+    try {
+      const stored = localStorage.getItem(SEARCH_TRANSLATIONS_PREF_KEY);
+      if (stored === null) {
+        return true;
+      }
+      return stored === 'true';
+    } catch (error) {
+      console.error('Failed to restore search translation preference:', error);
+      return true;
+    }
+  });
   const audioRef = useRef(null);
   const translationsCacheRef = useRef({});
   const translationWarningRef = useRef(new Set());
@@ -218,6 +234,87 @@ export const QuranProvider = ({ children }) => {
     return searchIndexPromiseRef.current;
   }, []);
 
+  const fetchTranslationForSurah = useCallback(async (languageKey, surahNumber) => {
+    const resolveTranslation = async (languageKeyToUse, allowFallback) => {
+      const languageMeta = LANGUAGE_CONFIG[languageKeyToUse] || LANGUAGE_CONFIG[DEFAULT_LANGUAGE];
+      const edition = languageMeta.translationEdition;
+      const cacheKey = `${edition}:${surahNumber}`;
+
+      if (translationsCacheRef.current[cacheKey]) {
+        return translationsCacheRef.current[cacheKey];
+      }
+
+      const storageKey = buildTranslationStorageKey(edition, surahNumber);
+
+      try {
+        const stored = localStorage.getItem(storageKey);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          translationsCacheRef.current[cacheKey] = parsed;
+          return parsed;
+        }
+      } catch (error) {
+        console.error('Failed to restore cached translation:', error);
+      }
+
+      try {
+        const response = await fetch(`https://api.alquran.cloud/v1/surah/${surahNumber}/${edition}`);
+        if (!response.ok) {
+          throw new Error(`Translation request failed with status ${response.status}`);
+        }
+
+        const payload = await response.json();
+        const ayahs = payload?.data?.ayahs;
+        if (!Array.isArray(ayahs) || ayahs.length === 0) {
+          throw new Error('Translation payload missing ayahs');
+        }
+
+        const translationName = payload?.data?.edition?.name || languageMeta.label;
+        const entries = ayahs.reduce((acc, ayah) => {
+          acc[ayah.numberInSurah] = ayah.text;
+          return acc;
+        }, {});
+
+        const normalized = {
+          edition,
+          languageKey: languageKeyToUse,
+          name: translationName,
+          entries
+        };
+
+        translationsCacheRef.current[cacheKey] = normalized;
+
+        try {
+          localStorage.setItem(storageKey, JSON.stringify(normalized));
+        } catch (storageError) {
+          console.error('Failed to persist translation cache:', storageError);
+        }
+
+        return normalized;
+      } catch (error) {
+        console.error(`Failed to fetch translation for ${languageKeyToUse}`, error);
+
+        if (!translationWarningRef.current.has(languageKeyToUse)) {
+          translationWarningRef.current.add(languageKeyToUse);
+
+          if (languageKeyToUse !== DEFAULT_LANGUAGE) {
+            toast.error(`Unable to load ${languageKeyToUse} translation. Falling back to English.`);
+          } else {
+            toast.error('Unable to load English translation at the moment.');
+          }
+        }
+
+        if (allowFallback && languageKeyToUse !== DEFAULT_LANGUAGE) {
+          return resolveTranslation(DEFAULT_LANGUAGE, false);
+        }
+
+        return null;
+      }
+    };
+
+    return resolveTranslation(languageKey, true);
+  }, []);
+
   const searchQuran = useCallback(
     async (rawQuery) => {
       const trimmedQuery = typeof rawQuery === 'string' ? rawQuery.trim() : '';
@@ -237,6 +334,7 @@ export const QuranProvider = ({ children }) => {
 
       const index = await ensureSearchIndex();
       const surahLookup = surahs || [];
+      const translationCache = new Map();
 
       const ayahResults = [];
       const surahResults = [];
@@ -268,6 +366,46 @@ export const QuranProvider = ({ children }) => {
         return snippetWords.join(' ');
       };
 
+      const buildTranslationSnippet = (text) => {
+        if (!text) {
+          return '';
+        }
+
+        const words = text.split(/\s+/).filter(Boolean);
+        if (words.length <= 20) {
+          return text;
+        }
+        return `${words.slice(0, 20).join(' ')}…`;
+      };
+
+      const getTranslationForEntry = async (entry) => {
+        if (!includeTranslationsInSearch) {
+          return null;
+        }
+
+        if (!language) {
+          return null;
+        }
+
+        const cached = translationCache.get(entry.surahNumber);
+        let translationData = cached;
+
+        if (!translationData) {
+          translationData = await fetchTranslationForSurah(language, entry.surahNumber);
+          translationCache.set(entry.surahNumber, translationData);
+        }
+
+        if (!translationData || !translationData.entries) {
+          return null;
+        }
+
+        return (
+          translationData.entries[entry.ayahNumber] ||
+          translationData.entries[String(entry.ayahNumber)] ||
+          null
+        );
+      };
+
       const addAyahResult = (entry) => {
         if (!entry) {
           return;
@@ -275,6 +413,15 @@ export const QuranProvider = ({ children }) => {
 
         const key = `${entry.surahNumber}:${entry.ayahNumber}`;
         if (seenAyahKeys.has(key)) {
+          if (entry.translationSnippet) {
+            const existingIndex = ayahResults.findIndex((result) => result.id === key);
+            if (existingIndex !== -1) {
+              ayahResults[existingIndex] = {
+                ...ayahResults[existingIndex],
+                translationSnippet: entry.translationSnippet
+              };
+            }
+          }
           return;
         }
 
@@ -285,6 +432,7 @@ export const QuranProvider = ({ children }) => {
           surahNumber: entry.surahNumber,
           ayahNumber: entry.ayahNumber,
           snippet: buildSnippet(entry),
+          translationSnippet: entry.translationSnippet || '',
           arabic: entry.textArabic,
           surahName: surahInfo?.name_simple || `Surah ${entry.surahNumber}`,
           surahArabicName: surahInfo?.name_arabic || '',
@@ -312,7 +460,7 @@ export const QuranProvider = ({ children }) => {
       };
 
       const parseDirectReference = () => {
-  const colonMatch = trimmedQuery.match(/^(\d{1,3})\s*[:-]\s*(\d{1,3})$/);
+        const colonMatch = trimmedQuery.match(/^(\d{1,3})\s*[:-]\s*(\d{1,3})$/);
         if (colonMatch) {
           return {
             surahNumber: Number(colonMatch[1]),
@@ -405,9 +553,30 @@ export const QuranProvider = ({ children }) => {
         }
       }
 
+      if (includeTranslationsInSearch && textualTokens.length) {
+        for (const entry of index.verses) {
+          const translationText = await getTranslationForEntry(entry);
+          if (!translationText) {
+            continue;
+          }
+
+          const normalizedTranslation = translationText.toLowerCase();
+          const matchesAllTokens = textualTokens.every((token) => normalizedTranslation.includes(token));
+          if (matchesAllTokens) {
+            addAyahResult({ ...entry, translationSnippet: buildTranslationSnippet(translationText) });
+          }
+        }
+      }
+
       return [...ayahResults, ...surahResults];
     },
-    [ensureSearchIndex, surahs]
+    [
+      ensureSearchIndex,
+      fetchTranslationForSurah,
+      includeTranslationsInSearch,
+      language,
+      surahs
+    ]
   );
 
   useEffect(() => {
@@ -420,6 +589,11 @@ export const QuranProvider = ({ children }) => {
       const savedLanguage = localStorage.getItem('quran_language');
       if (savedLanguage && LANGUAGE_CONFIG[savedLanguage]) {
         setLanguage(savedLanguage);
+      }
+
+      const savedSearchPref = localStorage.getItem(SEARCH_TRANSLATIONS_PREF_KEY);
+      if (savedSearchPref !== null) {
+        setIncludeTranslationsInSearch(savedSearchPref === 'true');
       }
 
       const savedBookmarks = localStorage.getItem('quran_bookmarks');
@@ -540,6 +714,16 @@ export const QuranProvider = ({ children }) => {
     [enablePrimaryAudio, persistAudioPreferences]
   );
 
+  const setSearchTranslationsEnabled = useCallback((value) => {
+    const normalizedValue = Boolean(value);
+    setIncludeTranslationsInSearch(normalizedValue);
+    try {
+      localStorage.setItem(SEARCH_TRANSLATIONS_PREF_KEY, String(normalizedValue));
+    } catch (error) {
+      console.error('Failed to persist search translation preference:', error);
+    }
+  }, []);
+
   const toggleBookmark = useCallback((surahNumber, ayahNumber) => {
     if (!surahNumber || !ayahNumber) {
       return;
@@ -649,87 +833,6 @@ export const QuranProvider = ({ children }) => {
         error: error?.message || error
       });
     }
-  }, []);
-
-  const fetchTranslationForSurah = useCallback(async (languageKey, surahNumber) => {
-    const resolveTranslation = async (languageKeyToUse, allowFallback) => {
-      const languageMeta = LANGUAGE_CONFIG[languageKeyToUse] || LANGUAGE_CONFIG[DEFAULT_LANGUAGE];
-      const edition = languageMeta.translationEdition;
-      const cacheKey = `${edition}:${surahNumber}`;
-
-      if (translationsCacheRef.current[cacheKey]) {
-        return translationsCacheRef.current[cacheKey];
-      }
-
-      const storageKey = buildTranslationStorageKey(edition, surahNumber);
-
-      try {
-        const stored = localStorage.getItem(storageKey);
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          translationsCacheRef.current[cacheKey] = parsed;
-          return parsed;
-        }
-      } catch (error) {
-        console.error('Failed to restore cached translation:', error);
-      }
-
-      try {
-        const response = await fetch(`https://api.alquran.cloud/v1/surah/${surahNumber}/${edition}`);
-        if (!response.ok) {
-          throw new Error(`Translation request failed with status ${response.status}`);
-        }
-
-        const payload = await response.json();
-        const ayahs = payload?.data?.ayahs;
-        if (!Array.isArray(ayahs) || ayahs.length === 0) {
-          throw new Error('Translation payload missing ayahs');
-        }
-
-        const translationName = payload?.data?.edition?.name || languageMeta.label;
-        const entries = ayahs.reduce((acc, ayah) => {
-          acc[ayah.numberInSurah] = ayah.text;
-          return acc;
-        }, {});
-
-        const normalized = {
-          edition,
-          languageKey: languageKeyToUse,
-          name: translationName,
-          entries
-        };
-
-        translationsCacheRef.current[cacheKey] = normalized;
-
-        try {
-          localStorage.setItem(storageKey, JSON.stringify(normalized));
-        } catch (storageError) {
-          console.error('Failed to persist translation cache:', storageError);
-        }
-
-        return normalized;
-      } catch (error) {
-        console.error(`Failed to fetch translation for ${languageKeyToUse}`, error);
-
-        if (!translationWarningRef.current.has(languageKeyToUse)) {
-          translationWarningRef.current.add(languageKeyToUse);
-
-          if (languageKeyToUse !== DEFAULT_LANGUAGE) {
-            toast.error(`Unable to load ${languageKeyToUse} translation. Falling back to English.`);
-          } else {
-            toast.error('Unable to load English translation at the moment.');
-          }
-        }
-
-        if (allowFallback && languageKeyToUse !== DEFAULT_LANGUAGE) {
-          return resolveTranslation(DEFAULT_LANGUAGE, false);
-        }
-
-        return null;
-      }
-    };
-
-    return resolveTranslation(languageKey, true);
   }, []);
 
   const fetchUpdatedAudioMapping = useCallback(async (surahNumber, ayahNumber) => {
@@ -1707,13 +1810,15 @@ export const QuranProvider = ({ children }) => {
       saveCustomUrl,
       getCustomUrlById,
       getAudioUrl,
-  getSupplementalAudioUrl,
+      getSupplementalAudioUrl,
       getTafseer,
       fetchSurahVerses,
       fetchCustomUrls,
       setThemePreference,
       setLanguagePreference,
       searchQuran,
+      includeTranslationsInSearch,
+      setSearchTranslationsEnabled,
       setPrimaryAudioEnabled,
       setSupplementalAudioEnabled,
       toggleBookmark,
@@ -1743,13 +1848,15 @@ export const QuranProvider = ({ children }) => {
       saveCustomUrl,
       getCustomUrlById,
       getAudioUrl,
-  getSupplementalAudioUrl,
+      getSupplementalAudioUrl,
       getTafseer,
       fetchSurahVerses,
       fetchCustomUrls,
       setThemePreference,
       setLanguagePreference,
       searchQuran,
+      includeTranslationsInSearch,
+      setSearchTranslationsEnabled,
       setPrimaryAudioEnabled,
       setSupplementalAudioEnabled,
       toggleBookmark,

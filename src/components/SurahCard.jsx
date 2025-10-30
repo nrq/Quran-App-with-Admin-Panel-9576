@@ -68,7 +68,7 @@ const SurahCard = ({ surah, index }) => {
                 <span>{surah.revelation_place}</span>
                 <span>•</span>
                 <SafeIcon icon={FiBook} className="text-xs" />
-                <span>{surah.verses_count} verses</span>
+                <span>{surah.verses_count}</span>
               </div>
             </div>
           </div>

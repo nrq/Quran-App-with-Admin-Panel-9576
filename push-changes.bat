@@ -7,7 +7,7 @@ git add .
 
 echo.
 echo Committing changes...
-git commit -m "search top bookmarks enhancements"
+git commit -m "remove text-verses"
 
 echo.
 echo Pushing to remote repository...

@@ -74,7 +74,7 @@ The design follows a phased approach:
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.yourcompany.quranapp',
+  appId: 'com.nurulquran.dq',
   appName: 'Quran App',
   webDir: 'dist',
   server: {

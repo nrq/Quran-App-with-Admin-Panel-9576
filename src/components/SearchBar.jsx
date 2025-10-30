@@ -4,10 +4,50 @@ import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
 import { useQuranData } from '../contexts/QuranContext';
 
-const { FiSearch, FiX, FiArrowRight, FiList, FiHome } = FiIcons;
+const {
+  FiSearch,
+  FiX,
+  FiArrowRight,
+  FiList,
+  FiBookmark,
+  FiChevronsRight,
+  FiArrowUpCircle
+} = FiIcons;
 
 const RECENT_SEARCHES_KEY = 'quran_recent_searches';
 const MAX_RECENT_SEARCHES = 5;
+const TOTAL_SURAHS = 114;
+const ARTICLE_PREFIXES = new Set([
+  'al',
+  'an',
+  'ar',
+  'as',
+  'ash',
+  'az',
+  'ad',
+  'at'
+]);
+
+const stripLeadingArticle = (name) => {
+  if (!name) {
+    return '';
+  }
+
+  const parts = name.split('-');
+  if (parts.length <= 1) {
+    return name;
+  }
+
+  const [possiblePrefix, ...rest] = parts;
+  const normalized = possiblePrefix.toLowerCase();
+
+  if (normalized.length >= 2 && normalized.length <= 3 && ARTICLE_PREFIXES.has(normalized)) {
+    const remainder = rest.join('-');
+    return remainder || name;
+  }
+
+  return name;
+};
 
 const saveRecentSearch = (searchTerm) => {
   if (!searchTerm.trim()) return;
@@ -41,7 +81,7 @@ const getRecentSearches = () => {
 const SearchBar = ({ variant = 'global' }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { searchQuran } = useQuranData();
+  const { searchQuran, surahs } = useQuranData();
   const isNavVariant = variant === 'nav';
 
   const [query, setQuery] = useState('');
@@ -54,6 +94,72 @@ const SearchBar = ({ variant = 'global' }) => {
 
   const hasQuery = query.trim().length > 0;
   const isExpanded = isNavVariant || isOpen || hasQuery || isFocused;
+
+  const currentSurahNumber = useMemo(() => {
+    const match = location.pathname.match(/^\/surah\/(\d+)/);
+    if (!match) {
+      return null;
+    }
+
+    const parsed = Number(match[1]);
+    return Number.isFinite(parsed) ? parsed : null;
+  }, [location.pathname]);
+
+  const currentSurah = useMemo(() => {
+    if (!Array.isArray(surahs) || !currentSurahNumber) {
+      return null;
+    }
+
+    return surahs.find((item) => item.id === currentSurahNumber) || null;
+  }, [currentSurahNumber, surahs]);
+
+  const currentAyahFromQuery = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    const ayahValue = Number(params.get('ayah'));
+    return Number.isInteger(ayahValue) && ayahValue > 0 ? ayahValue : null;
+  }, [location.search]);
+
+  const nextSurahNumber = useMemo(() => {
+    if (!currentSurahNumber) {
+      return 1;
+    }
+
+    return currentSurahNumber >= TOTAL_SURAHS ? 1 : currentSurahNumber + 1;
+  }, [currentSurahNumber]);
+
+  const nextSurah = useMemo(() => {
+    if (!Array.isArray(surahs)) {
+      return null;
+    }
+
+    return surahs.find((item) => item.id === nextSurahNumber) || null;
+  }, [nextSurahNumber, surahs]);
+
+  const nextSurahLabel = useMemo(() => {
+    if (!nextSurah) {
+      return 'Next';
+    }
+
+    const stripped = stripLeadingArticle(nextSurah.name_simple);
+    const safeName = stripped || nextSurah.name_simple || '';
+    return `${nextSurah.id} ${safeName}`.trim();
+  }, [nextSurah]);
+
+  const currentSurahReference = useMemo(() => {
+    if (!currentSurah) {
+      return null;
+    }
+
+    const reference = currentAyahFromQuery
+      ? `${currentSurah.id}:${currentAyahFromQuery}`
+      : `${currentSurah.id}`;
+
+    return {
+      english: currentSurah.name_simple,
+      arabic: currentSurah.name_arabic,
+      reference
+    };
+  }, [currentAyahFromQuery, currentSurah]);
 
   useEffect(() => {
     // Load recent searches on mount
@@ -200,6 +306,30 @@ const SearchBar = ({ variant = 'global' }) => {
     });
   }, []);
 
+  const closeSearchPanel = useCallback(() => {
+    setQuery('');
+    setResults([]);
+    setIsFocused(false);
+    setIsOpen(isNavVariant);
+  }, [isNavVariant]);
+
+  const handleNextSurah = useCallback(() => {
+    navigate(`/surah/${nextSurahNumber}`);
+    closeSearchPanel();
+  }, [closeSearchPanel, navigate, nextSurahNumber]);
+
+  const handleScrollToTop = useCallback(() => {
+    window.requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+    closeSearchPanel();
+  }, [closeSearchPanel]);
+
+  const handleViewBookmarks = useCallback(() => {
+    navigate('/bookmarks');
+    closeSearchPanel();
+  }, [closeSearchPanel, navigate]);
+
   const showResults = isExpanded && hasQuery && (isFocused || isLoading || results.length > 0);
   const showRecentSearches = isExpanded && !hasQuery && isFocused && recentSearches.length > 0;
 
@@ -283,28 +413,43 @@ const SearchBar = ({ variant = 'global' }) => {
                 )}
               </div>
               {!isNavVariant && (
-                <div className="mt-2 flex items-center justify-between gap-2">
-                  <button
-                    type="button"
-                    onMouseDown={(event) => {
-                      event.preventDefault();
-                      navigate('/');
-                    }}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      navigate('/');
-                    }}
-                    className="flex items-center gap-1.5 px-2 py-1 text-xs text-green-600 bg-green-50 rounded-lg transition-all shadow-[0_14px_32px_-18px_rgba(34,197,94,0.55)] hover:bg-green-100 hover:text-green-700 hover:shadow-[0_22px_46px_-16px_rgba(22,163,74,0.6)]"
-                    aria-label="Go to home"
-                  >
-                    <SafeIcon icon={FiHome} className="text-sm" />
-                    <span className="font-medium">Home</span>
-                  </button>
-                  <p className="text-xs text-slate-600">
-                    Try typing <span className="font-medium text-slate-500">15:20</span>,{' '}
-                    <span className="font-medium text-slate-500">Cave 44</span>, or{' '}
-                    <span className="font-medium text-slate-500">كَدَأْبِ</span>
-                  </p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <div className="flex flex-1 justify-start">
+                    <button
+                      type="button"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={handleNextSurah}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-islamic-gold px-3 py-1.5 text-xs font-semibold text-white shadow-[0_14px_32px_-18px_rgba(202,138,4,0.55)] hover:bg-amber-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
+                      aria-label={nextSurah ? `Go to ${nextSurah.name_simple}` : 'Go to next surah'}
+                    >
+                      <SafeIcon icon={FiChevronsRight} className="text-sm" />
+                      <span>{nextSurahLabel}</span>
+                    </button>
+                  </div>
+                  <div className="flex flex-1 justify-center">
+                    <button
+                      type="button"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={handleScrollToTop}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white shadow-[0_18px_38px_-18px_rgba(5,150,105,0.65)] hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+                      aria-label="Scroll to top"
+                    >
+                      <SafeIcon icon={FiArrowUpCircle} className="text-sm" />
+                      <span>Top</span>
+                    </button>
+                  </div>
+                  <div className="flex flex-1 justify-end">
+                    <button
+                      type="button"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={handleViewBookmarks}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-semibold text-white shadow-[0_18px_38px_-18px_rgba(59,130,246,0.6)] hover:bg-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+                      aria-label="View bookmarks"
+                    >
+                      <SafeIcon icon={FiBookmark} className="text-sm" />
+                      <span>Bookmarks</span>
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -312,10 +457,19 @@ const SearchBar = ({ variant = 'global' }) => {
             {showRecentSearches && (
               <div className={`${resultsWrapperClasses} bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden`}>
                 <div className="px-5 py-3 border-b border-slate-100">
-                  <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold flex items-center gap-2">
-                    <SafeIcon icon={FiList} className="text-sm" />
-                    Recent Searches
-                  </p>
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold flex items-center gap-2">
+                      <SafeIcon icon={FiList} className="text-sm" />
+                      Recent Searches
+                    </p>
+                    {currentSurahReference && (
+                      <div className="flex flex-wrap items-center justify-end gap-2 text-xs font-medium text-slate-500 text-right">
+                        <span>{currentSurahReference.english}</span>
+                        <span className="text-slate-400">{currentSurahReference.arabic}</span>
+                        <span>{currentSurahReference.reference}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <ul className="divide-y divide-slate-100">
                   {recentSearches.map((term, index) => (

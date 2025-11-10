@@ -68,7 +68,6 @@ const AyahCard = ({ verse, surahNumber }) => {
     (bookmark) => bookmark.surahNumber === surahNumber && bookmark.ayahNumber === verse.verse_number
   );
   const translationMeta = verse.translations && verse.translations[0] ? verse.translations[0] : null;
-  const translationLabel = translationMeta?.label || translationMeta?.language || language;
 
   const handlePlayAudio = () => {
     if (isPlaying && !isPaused) {
@@ -137,9 +136,6 @@ const AyahCard = ({ verse, surahNumber }) => {
 
         {translationMeta && (
           <div className={`english-text p-4 rounded-lg ${accentBgStyle}`}>
-            <p className={`text-sm font-medium mb-2 ${secondaryTextStyle}`}>
-              Translation{translationLabel ? ` (${translationLabel})` : ''}:
-            </p>
             <p className={textStyle}>{translationMeta.text}</p>
           </div>
         )}

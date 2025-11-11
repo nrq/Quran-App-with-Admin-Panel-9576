@@ -5,9 +5,10 @@ import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
 import AyahCard from '../components/AyahCard';
 import AudioPlayer from '../components/AudioPlayer';
+import RevelationPlaceIcon from '../components/RevelationPlaceIcon';
 import { useQuranAudio, useQuranData } from '../contexts/QuranContext';
 
-const { FiArrowLeft, FiBook, FiMapPin } = FiIcons;
+const { FiArrowLeft } = FiIcons;
 
 const THEME_CARD_STYLES = {
   green: 'bg-emerald-50/50 border border-emerald-200',
@@ -197,14 +198,11 @@ const Surah = () => {
                 <h1 className={`text-3xl font-bold ${textStyle}`}>{surah.name_simple}</h1>
                 <p className={`text-lg ${textStyle}`}>{surah.translated_name.name}</p>
                 <div className={`flex items-center space-x-4 text-sm mt-2 ${secondaryTextStyle}`}>
-                  <div className="flex items-center space-x-1">
-                    <SafeIcon icon={FiMapPin} className="text-xs" />
-                    <span>{surah.revelation_place}</span>
+                  <div className="flex items-center">
+                    <RevelationPlaceIcon place={surah.revelation_place} className="w-5 h-5" />
                   </div>
-                  <div className="flex items-center space-x-1">
-                    <SafeIcon icon={FiBook} className="text-xs" />
-                    <span>{surah.verses_count} verses</span>
-                  </div>
+                  <span>•</span>
+                  <span>{surah.verses_count} verses</span>
                 </div>
               </div>
             </div>

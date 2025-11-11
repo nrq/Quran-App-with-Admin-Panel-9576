@@ -1,11 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import * as FiIcons from 'react-icons/fi';
-import SafeIcon from '../common/SafeIcon';
+import RevelationPlaceIcon from './RevelationPlaceIcon';
 import { useQuranData } from '../contexts/QuranContext';
-
-const { FiBook, FiMapPin } = FiIcons;
 
 const THEME_CARD_STYLES = {
   green: 'bg-emerald-50/50 border border-emerald-200 hover:border-emerald-400',
@@ -63,12 +60,10 @@ const SurahCard = ({ surah, index }) => {
               <div className={`arabic-text text-2xl mb-2 ${textStyle}`}>
                 {surah.name_arabic}
               </div>
-              <div className={`flex items-center space-x-2 text-sm ${secondaryTextStyle}`}>
-                <SafeIcon icon={FiMapPin} className="text-xs" />
-                <span>{surah.revelation_place}</span>
+              <div className={`flex items-center justify-end space-x-3 text-sm ${secondaryTextStyle}`}>
+                <RevelationPlaceIcon place={surah.revelation_place} className="w-4 h-4" />
                 <span>•</span>
-                <SafeIcon icon={FiBook} className="text-xs" />
-                <span>{surah.verses_count}</span>
+                <span>{surah.verses_count} verses</span>
               </div>
             </div>
           </div>

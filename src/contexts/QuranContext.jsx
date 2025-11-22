@@ -643,6 +643,16 @@ export const QuranProvider = ({ children }) => {
           createdAt: bookmark.createdAt || Date.now()
         }));
         setBookmarks(parsed);
+      } else {
+        // Set default bookmarks if none exist
+        const defaultBookmarks = [
+          { id: '2:254', surahNumber: 2, ayahNumber: 254, note: '', createdAt: Date.now() },
+          { id: '2:163', surahNumber: 2, ayahNumber: 163, note: '', createdAt: Date.now() - 1000 },
+          { id: '2:45', surahNumber: 2, ayahNumber: 45, note: '', createdAt: Date.now() - 2000 },
+          { id: '57:18', surahNumber: 57, ayahNumber: 18, note: '', createdAt: Date.now() - 3000 }
+        ];
+        setBookmarks(defaultBookmarks);
+        localStorage.setItem('quran_bookmarks', JSON.stringify(defaultBookmarks));
       }
 
       const savedAudioPrefs = localStorage.getItem(AUDIO_PREFERENCES_STORAGE_KEY);

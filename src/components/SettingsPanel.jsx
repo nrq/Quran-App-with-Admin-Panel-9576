@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import * as FiIcons from 'react-icons/fi';
@@ -26,6 +26,7 @@ const SettingsPanel = ({ isOpen, onClose }) => {
     theme,
     language,
     bookmarks,
+    surahs,
     setThemePreference,
     setLanguagePreference,
     enablePrimaryAudio,
@@ -33,10 +34,51 @@ const SettingsPanel = ({ isOpen, onClose }) => {
     setPrimaryAudioEnabled,
     setSupplementalAudioEnabled,
     includeTranslationsInSearch,
-    setSearchTranslationsEnabled
+    setSearchTranslationsEnabled,
+    fetchSurahVerses
   } = useQuranData();
 
+  const [versesCache, setVersionsCache] = useState({});
+
   const topBookmarks = useMemo(() => bookmarks.slice(0, 3), [bookmarks]);
+
+  // Create surah lookup
+  const surahLookup = useMemo(() => {
+    return surahs.reduce((accumulator, surah) => {
+      accumulator[surah.id] = surah;
+      return accumulator;
+    }, {});
+  }, [surahs]);
+
+  // Load verses for bookmarks
+  useEffect(() => {
+    const loadVerses = async () => {
+      const newCache = { ...versesCache };
+      for (const bookmark of topBookmarks) {
+        const cacheKey = `${bookmark.surahNumber}`;
+        if (!newCache[cacheKey]) {
+          try {
+            const verses = await fetchSurahVerses(bookmark.surahNumber);
+            newCache[cacheKey] = verses;
+          } catch (error) {
+            console.error(`Error loading verses for surah ${bookmark.surahNumber}:`, error);
+          }
+        }
+      }
+      setVersionsCache(newCache);
+    };
+
+    if (topBookmarks.length > 0) {
+      loadVerses();
+    }
+  }, [topBookmarks, fetchSurahVerses]);
+
+  // Get verse text for a bookmark
+  const getVerseText = (surahNumber, ayahNumber) => {
+    const verses = versesCache[`${surahNumber}`];
+    if (!verses) return null;
+    return verses.find((v) => v.verse_number === ayahNumber);
+  };
 
   const handleNavigate = (surahNumber, ayahNumber) => {
     onClose();
@@ -88,26 +130,34 @@ const SettingsPanel = ({ isOpen, onClose }) => {
                   <p className="text-sm text-slate-500">No bookmarks yet. Tap a verse number to bookmark it.</p>
                 ) : (
                   <div className="space-y-3">
-                    {topBookmarks.map((bookmark) => (
-                      <button
-                        key={bookmark.id}
-                        type="button"
-                        onClick={() => handleNavigate(bookmark.surahNumber, bookmark.ayahNumber)}
-                        className="w-full flex items-center justify-between px-4 py-3 bg-islamic-50 border border-islamic-100 rounded-lg hover:border-islamic-gold transition-colors"
-                      >
-                        <div className="text-left">
-                          <p className="text-sm font-semibold text-islamic-700">
-                            Surah {bookmark.surahNumber}: Ayah {bookmark.ayahNumber}
-                          </p>
-                          {bookmark.note && (
-                            <p className="text-xs text-slate-500 mt-1 truncate">
-                              {bookmark.note}
-                            </p>
+                    {topBookmarks.map((bookmark) => {
+                      const surah = surahLookup[bookmark.surahNumber];
+                      const verseText = getVerseText(bookmark.surahNumber, bookmark.ayahNumber);
+                      const arabicText = verseText ? verseText.text_uthmani : '';
+
+                      return (
+                        <button
+                          key={bookmark.id}
+                          type="button"
+                          onClick={() => handleNavigate(bookmark.surahNumber, bookmark.ayahNumber)}
+                          className="w-full flex flex-col gap-2 px-4 py-3 bg-islamic-50 border border-islamic-100 rounded-lg hover:border-islamic-gold transition-colors"
+                        >
+                          <div className="flex items-center justify-between w-full">
+                            <div className="text-left">
+                              <p className="text-sm font-semibold text-islamic-700">
+                                {surah ? surah.name_simple : `Surah ${bookmark.surahNumber}`}:{bookmark.ayahNumber}
+                              </p>
+                            </div>
+                            <SafeIcon icon={FiArrowRight} className="text-islamic-gold" />
+                          </div>
+                          {arabicText && (
+                            <div className="quran-text-pak text-right text-sm text-islamic-800 truncate w-full">
+                              {arabicText}
+                            </div>
                           )}
-                        </div>
-                        <SafeIcon icon={FiArrowRight} className="text-islamic-gold" />
-                      </button>
-                    ))}
+                        </button>
+                      );
+                    })}
                     {bookmarks.length > 3 && (
                       <button
                         type="button"
